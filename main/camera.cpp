@@ -4,13 +4,23 @@
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_timer.h"
 #include <cstdlib>
+#include <cstring>
 
 static bool ready=false;
 static uint8_t *rgb=nullptr;
+// Copy of the last analysed frame: evidence attached to caregiver notifications.
+constexpr size_t JPEG_MAX=16*1024;
+static uint8_t *jpeg_copy=nullptr;
+static size_t jpeg_len=0;
+static int64_t jpeg_ms=-1;
 void camera_stop() {
     if(ready) esp_camera_deinit();
-    ready=false; free(rgb); rgb=nullptr;
+    ready=false; free(rgb); rgb=nullptr; free(jpeg_copy); jpeg_copy=nullptr; jpeg_len=0; jpeg_ms=-1;
+}
+const uint8_t *camera_last_jpeg(size_t &len, int64_t &ms) {
+    len=jpeg_len; ms=jpeg_ms; return jpeg_len?jpeg_copy:nullptr;
 }
 esp_err_t camera_start(int profile) {
     camera_stop();
@@ -24,13 +34,15 @@ esp_err_t camera_start(int profile) {
     c.pin_vsync=25; c.pin_href=23; c.pin_pclk=22;
     c.xclk_freq_hz=20000000; c.ledc_timer=LEDC_TIMER_0; c.ledc_channel=LEDC_CHANNEL_0;
     c.pixel_format=PIXFORMAT_JPEG; c.frame_size=FRAMESIZE_QQVGA;
-    c.jpeg_quality=12; c.fb_count=1;
+    c.jpeg_quality=6; c.fb_count=1;
     c.fb_location=CAMERA_FB_IN_DRAM; c.grab_mode=CAMERA_GRAB_WHEN_EMPTY;
     esp_err_t err=esp_camera_init(&c);
     if(err!=ESP_OK) return err;
     ready=true;
-    rgb=static_cast<uint8_t*>(heap_caps_malloc(auditor::W*auditor::H*3,MALLOC_CAP_8BIT));
-    if(!rgb) { camera_stop(); return ESP_ERR_NO_MEM; }
+    // Decoder output and photo copy prefer PSRAM: internal RAM is needed by Wi-Fi and DMA.
+    rgb=static_cast<uint8_t*>(heap_caps_malloc_prefer(auditor::W*auditor::H*3,2,MALLOC_CAP_SPIRAM,MALLOC_CAP_8BIT));
+    jpeg_copy=static_cast<uint8_t*>(heap_caps_malloc_prefer(JPEG_MAX,2,MALLOC_CAP_SPIRAM,MALLOC_CAP_8BIT));
+    if(!rgb || !jpeg_copy) { camera_stop(); return ESP_ERR_NO_MEM; }
     vTaskDelay(pdMS_TO_TICKS(300));
     for(int i=0;i<4;++i) { auto *fb=esp_camera_fb_get(); if(!fb) { camera_stop(); return ESP_FAIL; } esp_camera_fb_return(fb); }
     return ESP_OK;
@@ -48,6 +60,7 @@ bool camera_gray(uint8_t *out) {
     bool ok=fb->format==PIXFORMAT_JPEG && fb->width==auditor::W && fb->height==auditor::H &&
         esp_jpeg_get_image_info(&jpeg,&info)==ESP_OK && info.width==auditor::W && info.height==auditor::H &&
         info.output_len<=jpeg.outbuf_size && esp_jpeg_decode(&jpeg,&info)==ESP_OK;
+    if(ok && fb->len<=JPEG_MAX) { memcpy(jpeg_copy,fb->buf,fb->len); jpeg_len=fb->len; jpeg_ms=esp_timer_get_time()/1000; }
     esp_camera_fb_return(fb);
     if(ok) for(int i=0;i<auditor::W*auditor::H;++i)
         out[i]=(77u*rgb[3*i]+150u*rgb[3*i+1]+29u*rgb[3*i+2])>>8; // esp_jpeg RGB888, no byte swap

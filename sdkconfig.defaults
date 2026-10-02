@@ -4,6 +4,30 @@ CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=24576
 CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
-# No PSRAM assumption: QQVGA JPEG + a single DRAM buffer.
-CONFIG_SPIRAM=n
+# Use PSRAM when the module has it, but boot normally without it:
+# camera buffers stay in DRAM (QQVGA JPEG + a single buffer).
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
 CONFIG_COMPILER_CXX_EXCEPTIONS=n
+# Unattended operation: a hung task reboots the board and the caregiver is told why.
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=30
+CONFIG_ESP_TASK_WDT_PANIC=y
+# SNTP with two servers (a.st1.ntp.br, pool.ntp.org).
+CONFIG_LWIP_SNTP_MAX_SERVERS=2
+# HTTPS to api.telegram.org: CA bundle, smaller TX buffer to spare internal RAM.
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+CONFIG_MBEDTLS_ASYMMETRIC_CONTENT_LEN=y
+CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=16384
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=4096
+# Wi-Fi + camera together overflow the default 2304/2048-byte stacks (seen on the RoboCore board).
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4096
+CONFIG_CAMERA_TASK_STACK_SIZE=4096
+# Camera task on core 1, away from the Wi-Fi task on core 0.
+CONFIG_CAMERA_CORE1=y
+# mbedTLS uses plain malloc: large TLS buffers go to PSRAM when present, internal RAM otherwise.
+# Internal-only allocation failed on the RoboCore board (mbedtls_ssl_setup -0x7F00).
+CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC=y
+# The automatic JPEG buffer (w*h/5 = 3840 B at QQVGA) overflows on detailed scenes (FB-OVF/NO-EOI).
+CONFIG_CAMERA_JPEG_MODE_FRAME_SIZE_CUSTOM=y
+CONFIG_CAMERA_JPEG_MODE_FRAME_SIZE=16384

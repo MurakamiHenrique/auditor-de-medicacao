@@ -3,7 +3,7 @@
 #include <cstring>
 
 namespace {
-constexpr uint32_t VERSION=1;
+constexpr uint32_t VERSION=2; // 2: late_s and enabled
 // Same-build blob layout guarded by version, size and checksum. Bump on schema change.
 struct Record { uint32_t version; auditor::Settings settings; auditor::Calibration calibration; uint32_t crc; };
 uint32_t checksum(const void *ptr, size_t n) {

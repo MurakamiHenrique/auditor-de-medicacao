@@ -13,6 +13,14 @@ def encode_command(command):
     return data + b"\n"
 
 
+SECRETS = ("password", "token")
+
+
+def redact(command):
+    """Copy of a command safe to display or log: Wi-Fi password and bot token hidden."""
+    return {k: ("***" if k in SECRETS and v else v) for k, v in command.items()}
+
+
 def decode_event(line):
     try:
         event = json.loads(line)

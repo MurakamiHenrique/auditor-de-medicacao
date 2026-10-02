@@ -50,14 +50,15 @@ def main():
                 stop.set()
         thread = threading.Thread(target=receive, daemon=True)
         thread.start()
-        print(f"Log: {path}. help, time, status, snapshot, sample, ack, cancel, quit ou JSON.")
+        print(f"Log: {path}. help, time, status, snapshot, sample, cancel, test_notify, quit ou JSON.")
         try:
             while not stop.is_set():
                 text = input().strip()
                 if text == "quit":
                     break
                 if text == "help":
-                    print('Ex.: {"cmd":"set","profile":1}; {"cmd":"calibrate","label":"empty"}; {"cmd":"arm","delay_s":10}')
+                    print('Ex.: {"cmd":"set","profile":1}; {"cmd":"calibrate","label":"empty"}; {"cmd":"arm","delay_s":10}; '
+                          '{"cmd":"wifi","ssid":"rede","password":"senha"}; {"cmd":"telegram","token":"123:abc","chat_id":"42"}')
                     continue
                 if not text:
                     continue

@@ -4,30 +4,36 @@ Este documento descreve ensaios a executar na placa. Não é um relatório de re
 
 ## Preparação
 
-Registre versão/commit do firmware, marcação da placa, perfil de pinagem, sensor, fonte/cabo USB, caixa, objetos, posição e distância da câmera, iluminação, ROI, limiares e arquivo JSONL. Fixe câmera e caixa. Desative qualquer ajuste automático externo da iluminação durante um lote. Separe as amostras de calibração das observações de teste. Se mudar câmera, caixa, iluminação ou recorte, calibre novamente e inicie um lote novo.
+Registre versão/commit do firmware, rede Wi-Fi e RSSI, fonte de alimentação, marcação da placa, perfil de pinagem, sensor, fonte/cabo USB, caixa, objetos, posição e distância da câmera, iluminação, ROI, limiares e arquivo JSONL. Fixe câmera e caixa. Desative qualquer ajuste automático externo da iluminação durante um lote. Separe as amostras de calibração das observações de teste. Se mudar câmera, caixa, iluminação ou recorte, calibre novamente e inicie um lote novo.
 
 ## Ensaios funcionais
 
+Salvo indicação, use `arm` com `delay_s` (botão **Teste: verificar em 10 s**) para não esperar o horário real, e confira o aviso recebido no Telegram além do evento serial.
+
 | Ensaio | Procedimento | Resultado esperado |
 |---|---|---|
-| Sem hora | Reiniciar, tentar armar | Recusa, mesmo com referências restauradas |
-| Sem referência | Remover calibração, tentar armar | Recusa |
-| Presença inicial | Calibrar, esvaziar e tentar armar | Recusa |
-| Retirada | Armar cheio; depois do início, retirar e afastar a mão | `removed` apenas após observações vazias consecutivas |
+| Sem Wi-Fi/hora | Ligar sem rede configurada | Estado `idle`, `clock_source=none`; agenda não arma |
+| Hora por SNTP | Configurar Wi-Fi | Evento `clock` com `sntp`; estado `armed` com `next_epoch` correto em UTC−3 |
+| Sem referência | Remover calibração | Agenda para (`idle`); teste recusado |
+| Telegram | `test_notify` | Mensagem com foto no chat; evento `notify` com `status` 200 |
+| Credencial errada | Salvar token ou `chat_id` inválido e testar | `notify` com 4xx e `final=true`, sem novas tentativas |
+| Retirada | Dose presente no início; retirar e afastar a mão | `removed` só após observações vazias consecutivas; ✅ sem foto |
+| Já vazio | Iniciar a janela sem dose | `not_loaded`; ⚠️ com foto |
 | Transitório | Mostrar vazio por uma leitura e repor | Não confirmar retirada |
 | Oclusão | Cobrir a câmera ou passar a mão, sem retirar objeto | Inconclusivo/falha, nunca retirada |
-| Escuro/saturado | Alterar iluminação fortemente | Inconclusivo/falha |
-| Dose pendente | Manter objeto até o fim | `alert`; som no painel aberto |
+| Escuro/saturado | Alterar iluminação fortemente | Inconclusivo/`fault`; ❌ com foto |
+| Dose pendente | Manter objeto até o fim | `alert`; 🔔 com foto |
+| Retirada tardia | Após o 🔔, retirar durante `late_s` | `late_removed`; ✅ “com atraso” |
 | Falha no limite | Obstruir a imagem no final | `fault`, sem transformar leitura antiga em retirada |
-| Reconhecimento | Reconhecer um alerta | Alerta reconhecido, classe final preservada |
-| Novo ciclo | Repor, rearmar, repetir | Nova verificação de presença, sem reutilizar resultado anterior |
-| Reinício | Reiniciar no meio da janela | Configuração permanece, hora inválida e desarmado |
-| USB/painel | Fechar painel com alimentação mantida | Detecção embarcada continua; sem som no computador |
-| Sem rede | Manter Wi-Fi inexistente | Mesmo funcionamento |
-| Agenda seguinte | Armar depois do horário salvo | Próxima ocorrência no dia seguinte, informada em `due_ms` |
-| Falha de câmera | Com placa desligada, desconectar flat; ligar | Câmera indisponível; armamento recusado |
+| Dias seguidos | Deixar a agenda real rodar dois dias (ou ajustar o horário para daqui a poucos minutos, duas vezes) | Um aviso por dia; a janela do mesmo dia não se repete |
+| Sem computador | Desconectar a USB do PC e alimentar pela fonte | Aviso 🔌 com a próxima verificação; verificação e aviso no horário |
+| Reinício fora da janela | Desligar e religar a fonte | 🔌 com motivo “energia ligada”; agenda rearmada após o SNTP |
+| Reinício na janela | Religar no meio da janela | Janela retomada com o tempo restante; aviso indica a retomada |
+| Queda de Wi-Fi | Desligar o roteador durante a janela e religar depois | Resultado decidido normalmente; aviso entregue quando a rede volta |
+| Queda de tensão | Usar fonte/cabo fraco (se seguro) | Se reiniciar, 🔌 informa *brownout* |
+| Falha de câmera | Com placa desligada, desconectar flat; ligar | Câmera indisponível no 🔌; agenda não arma até corrigir |
 
-Não desconecte o flat energizado. Para retomar de falha de câmera, desligue, corrija a montagem, ligue, consulte status, ajuste hora e rearme. O firmware não tenta reinicializar pinos automaticamente durante uma dose.
+Não desconecte o flat energizado. Para retomar de falha de câmera, desligue, corrija a montagem e ligue. Fora de uma janela, o firmware tenta iniciar a câmera novamente a cada minuto.
 
 ## Acurácia por observação
 

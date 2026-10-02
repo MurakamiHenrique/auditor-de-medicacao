@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from protocol import LineBuffer, decode_event, encode_command, pgm_image
+from protocol import LineBuffer, decode_event, encode_command, pgm_image, redact
 from evaluate import evaluate
 
 
@@ -24,6 +24,12 @@ class ProtocolTests(unittest.TestCase):
             encode_command({"cmd": "x" * 512})
         with self.assertRaises(ValueError):
             encode_command({"x": float("nan")})
+
+    def test_redact_secrets(self):
+        command = {"cmd": "wifi", "ssid": "casa", "password": "segredo123"}
+        self.assertEqual(redact(command), {"cmd": "wifi", "ssid": "casa", "password": "***"})
+        self.assertEqual(command["password"], "segredo123")  # original still sent to the board
+        self.assertEqual(redact({"cmd": "telegram", "token": "1:x", "chat_id": "42"})["token"], "***")
 
     def test_snapshot(self):
         event = {"width": 160, "height": 120, "gray_base64": base64.b64encode(b"\x80" * 19200).decode()}
