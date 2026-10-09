@@ -1,0 +1,4 @@
+# LF in the repository for every text file, whatever the contributor's OS (Windows, macOS, Linux).
+* text=auto
+*.sh text eol=lf
+*.ps1 text eol=crlf

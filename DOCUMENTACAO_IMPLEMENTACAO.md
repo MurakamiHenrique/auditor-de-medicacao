@@ -37,7 +37,7 @@ A placa RoboCore tem ESP32 clássico, câmera OV2640, Wi-Fi com antena integrada
 - `tools/panel.py`: painel Tkinter com abas de câmera, agenda e Wi-Fi/Telegram, snapshots, ROI e logs.
 - `tools/console.py`: console serial sem interface gráfica.
 - `tools/evaluate.py`: rótulos humanos, matriz de confusão e metas.
-- `tools/build.ps1`: compilação e upload no Windows.
+- `tools/build.py`: compilação e upload no Windows, macOS e Linux (`tools/build.ps1` é um atalho no Windows).
 - `tests/core_tests.cpp` e `tests/test_tools.py`: testes automatizados.
 - `docs/`: arquitetura, hardware, protocolo, validação e verificação.
 
@@ -55,7 +55,7 @@ A câmera captura JPEG QQVGA, 160 × 120, com um framebuffer. O primeiro buffer 
 
 A ROI deve estar dentro da imagem, ter no mínimo 32 × 32 pixels e ocupar no máximo 75% da cena. Ela é reduzida a 32 × 32 por médias de blocos. Até 192 pontos fora da ROI acompanham o entorno e ajudam a rejeitar deslocamento e mudança global de iluminação.
 
-A distância entre imagens é a média da diferença absoluta dos pixels. A classificação só é aceita quando:
+A distância às referências é a média das 10% maiores diferenças entre as células da ROI, para que comprimidos pequenos não se diluam na média; a estabilidade entre quadros e o entorno usam a média das diferenças. A classificação só é aceita quando:
 
 - há duas referências válidas;
 - a separação entre elas é maior que `2 * margin`;
@@ -67,7 +67,7 @@ A distância entre imagens é a média da diferença absoluta dos pixels. A clas
 
 Cada comando de calibração coleta cinco quadros. O primeiro define a cena; os seguintes precisam permanecer próximos dele. A referência é salva como `present` ou `empty`. Ao concluir as duas referências, o firmware rejeita cenas pouco separadas ou com entorno instável.
 
-Padrões: ROI `[40,24,80,72]`, perfil `0`, horário `08:00`, janela de 60 s, intervalo de 5 s, observação extra após alerta de 1800 s, duas confirmações, distância máxima 18, margem 5, distância de contexto 20 e estabilidade 8. Para uso real, uma tolerância de 30 min (`window_s=1800`) é mais adequada que os 60 s de demonstração.
+Padrões: ROI `[40,24,80,72]`, perfil `0`, horário `08:00`, janela de 60 s, intervalo de 5 s, observação extra após alerta de 1800 s, duas confirmações, distância máxima 18, margem 8, distância de contexto 20 e estabilidade 8. Para uso real, uma tolerância de 30 min (`window_s=1800`) é mais adequada que os 60 s de demonstração.
 
 ## Agenda e máquina de estados
 
@@ -117,11 +117,11 @@ Durante uma verificação, somente `status` e `cancel` são aceitos. Os eventos 
 
 Versões fixadas: PlatformIO 6.1.18, espressif32 6.11.0, ESP-IDF 5.4.1 e esp32-camera 2.0.16. Flash de 4 MB, modo DIO.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install platformio==6.1.18 -r tools/requirements.txt
-powershell -ExecutionPolicy Bypass -File tools/build.ps1
-powershell -ExecutionPolicy Bypass -File tools/build.ps1 -Action upload -Port COM5
+```bash
+python3 -m venv .venv                     # Windows: python -m venv .venv
+.venv/bin/python -m pip install platformio==6.1.18 -r tools/requirements.txt
+.venv/bin/python tools/build.py           # Windows: .\.venv\Scripts\python.exe tools/build.py
+.venv/bin/python tools/build.py upload
 ```
 
 Ao mudar `sdkconfig.defaults`, apague `sdkconfig.esp32cam` antes de compilar. O último build gerou cerca de 66 KB de RAM estática e 1,19 MB de aplicação em flash.

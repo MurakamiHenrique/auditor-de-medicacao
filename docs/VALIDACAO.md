@@ -50,8 +50,9 @@ ms,truth
 
 Os números acima são exemplos de formato, não dados de ensaio. Use os timestamps reais. Cada arquivo de avaliação deve conter um único boot.
 
-```powershell
-.\.venv\Scripts\python.exe tools/evaluate.py logs/sessao.jsonl rotulos.csv --output logs/resultado.json
+```bash
+.venv/bin/python tools/evaluate.py logs/sessao.jsonl rotulos.csv --output logs/resultado.json
+# Windows: .\.venv\Scripts\python.exe tools/evaluate.py logs/sessao.jsonl rotulos.csv --output logs/resultado.json
 ```
 
 O relatório informa matriz de confusão, acerto por classe, ocorrências de oclusão classificada como vazio, quantidade suficiente de amostras e duração máxima. A meta documental é ≥90% em cada classe cheio/vazio. O ensaio de **zero confirmações indevidas** exige também ciclos completos com oclusão; um resultado por imagem não comprova esse requisito temporal.

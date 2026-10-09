@@ -25,7 +25,8 @@ def main():
     else:
         zig = importlib.util.find_spec("ziglang")
         if not zig:
-            raise SystemExit("Instale um compilador C++ ou: python -m pip install ziglang==0.13.0")
+            raise SystemExit("Instale um compilador C++ (macOS: xcode-select --install; Linux: g++) "
+                             "ou: python -m pip install ziglang==0.13.0")
         executable = Path(zig.origin).parent / ("zig.exe" if os.name == "nt" else "zig")
         command = [str(executable), "c++"]
     env = os.environ.copy()

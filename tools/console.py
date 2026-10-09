@@ -1,4 +1,7 @@
-"""Console JSON USB; python tools/console.py COM5. Type help for shortcuts."""
+"""Console JSON USB: python tools/console.py [porta]. Sem porta, usa a placa detectada.
+
+Porta: COM5 no Windows, /dev/cu.usbserial-XXXX no macOS, /dev/ttyUSB0 no Linux. Digite help.
+"""
 import argparse
 from datetime import datetime
 import json
@@ -7,7 +10,26 @@ import sys
 import threading
 import time
 import serial
+from serial.tools import list_ports
 from protocol import LineBuffer, decode_event, encode_command, pgm_image
+
+# USB-serial bridges used by ESP32 boards: WCH CH340 (RoboCore), Silicon Labs CP210x, FTDI.
+BOARD_VIDS = {0x1A86, 0x10C4, 0x0403}
+
+
+def find_board_ports():
+    """Serial ports that look like an ESP32 board, on Windows, macOS and Linux."""
+    # macOS lists each device as /dev/cu.* and /dev/tty.*; tty.* blocks waiting for carrier detect.
+    return sorted(p.device for p in list_ports.comports()
+                  if p.vid in BOARD_VIDS and not p.device.startswith("/dev/tty."))
+
+
+def all_ports():
+    """Board ports first, then the others (Bluetooth and similar), without macOS tty.* duplicates."""
+    boards = find_board_ports()
+    others = sorted(p.device for p in list_ports.comports()
+                    if p.device not in boards and not p.device.startswith("/dev/tty."))
+    return boards + others
 
 
 def open_serial(port):
@@ -22,9 +44,14 @@ def open_serial(port):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("port")
+    parser.add_argument("port", nargs="?", help="omita para usar a placa detectada")
     parser.add_argument("--logs", type=Path, default=Path("logs"))
     args = parser.parse_args()
+    if not args.port:
+        found = find_board_ports()
+        if len(found) != 1:
+            raise SystemExit(f"Informe a porta. Placas detectadas: {found or 'nenhuma'}")
+        args.port = found[0]
     args.logs.mkdir(parents=True, exist_ok=True)
     path = args.logs / (datetime.now().strftime("%Y%m%d-%H%M%S") + ".jsonl")
     stop = threading.Event()

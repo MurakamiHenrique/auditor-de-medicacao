@@ -8,8 +8,7 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import serial
-from serial.tools import list_ports
-from console import open_serial
+from console import all_ports, find_board_ports, open_serial
 from protocol import LineBuffer, decode_event, encode_command, pgm_image, redact
 
 STATES = {"idle": "CONFIGURAÇÃO — agenda parada", "armed": "AGENDADO — aguardando o horário",
@@ -36,8 +35,9 @@ class Panel:
         root.title("Auditor visual de medicação • configuração USB")
         root.geometry("1000x800")
         top = ttk.Frame(root, padding=10); top.pack(fill="x")
-        self.port = ttk.Combobox(top, values=[p.device for p in list_ports.comports()], width=13)
+        self.port = ttk.Combobox(top, width=28)
         self.port.pack(side="left")
+        self.ports()
         ttk.Button(top, text="Atualizar portas", command=self.ports).pack(side="left")
         ttk.Button(top, text="Conectar", command=self.connect).pack(side="left")
         ttk.Button(top, text="Desconectar", command=self.disconnect).pack(side="left")
@@ -117,7 +117,11 @@ class Panel:
         ttk.Label(tab, text="As credenciais ficam só no ESP32 e não aparecem no log.", wraplength=300).pack(pady=(8, 0))
 
     def ports(self):
-        self.port["values"] = [p.device for p in list_ports.comports()]
+        # Board first (CH340 etc.): COMx on Windows, /dev/cu.usbserial-* on macOS.
+        self.port["values"] = all_ports()
+        boards = find_board_ports()
+        if boards and self.port.get() not in boards:
+            self.port.set(boards[0])
 
     def write(self, text):
         self.output.configure(state="normal")
