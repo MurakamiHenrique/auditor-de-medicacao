@@ -61,6 +61,24 @@ int main() {
         CHECK(extract(img.data(),img.size(),edge.roi,black));
         auto r=classify(black,refs,edge); CHECK(std::isfinite(r.empty));
     }
+    // Small pill: 16x14 px, ~4% of the 80x72 ROI, as measured with a real capsule on the bench.
+    {
+        std::array<uint8_t,W*H> scene{}; scene.fill(100);
+        Sample bare,pill,moved;
+        CHECK(extract(scene.data(),scene.size(),s.roi,bare));
+        auto put=[&](int x0,int y0,uint8_t v){ for(int y=y0;y<y0+14;++y) for(int x=x0;x<x0+16;++x) scene[y*W+x]=v; };
+        put(50,30,230); CHECK(extract(scene.data(),scene.size(),s.roi,pill));
+        put(50,30,100); put(95,70,230); CHECK(extract(scene.data(),scene.size(),s.roi,moved));
+        CHECK(distance(pill.roi.data(),bare.roi.data(),N)<2*s.margin); // whole-ROI mean dilutes it
+        CHECK(roi_distance(pill.roi,bare.roi)>2*s.margin);
+        Calibration small; small.present=pill; small.empty=bare; small.has_present=small.has_empty=true;
+        CHECK(calibrated(small,s));
+        CHECK(classify(pill,small,s).label==Observation::Present);
+        CHECK(classify(bare,small,s).label==Observation::Empty);
+        // Moved pill differs from both references: inconclusive, never a removal.
+        CHECK(classify(moved,small,s).label==Observation::Unknown);
+    }
+
     // Daily schedule: offset to the next window start, resuming an open window.
     bad=s; bad.late_s=-1; CHECK(!valid(bad));
     bad=s; bad.window_s=43200; bad.late_s=43200; CHECK(!valid(bad));

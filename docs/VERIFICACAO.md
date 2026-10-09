@@ -44,6 +44,12 @@ Problemas encontrados na placa e corrigidos em `sdkconfig.defaults` / `main/came
 | Capturas perdidas (`FB-OVF`/`NO-EOI`) | Buffer JPEG automático de 3840 B pequeno para QQVGA | Buffer JPEG fixo de 16 KB |
 | Calibração falhando por “cena instável” com tudo parado | Artefatos de bloco do JPEG (qualidade 12) davam ruído de 4–5 níveis entre quadros, perto do limite 8; entorno medido em pixels isolados | JPEG qualidade 6 e entorno pela média 5×5: ruído caiu para ~2,8 (ROI) e ~3,3 (entorno), 12/12 leituras estáveis |
 
+Mudança posterior, verificada só em software e com fotos reais do log (ainda não gravada na placa):
+
+| Sintoma | Causa | Correção |
+|---|---|---|
+| Remédio pequeno não calibra (“cheio e vazio muito parecidos”, diferença 4,7–8,4) | A média da ROI inteira dilui um comprimido que ocupa ~4% da área | Distância às referências pela média das 10% maiores diferenças: nas mesmas fotos, 31,8 contra ruído de 8,9; margem padrão 8. Testes de comprimido pequeno e deslocado |
+
 ### Não verificado (exige a placa)
 
 - Ciclo completo (janela, resultado e aviso) com a caixa calibrada, e operação longa só na fonte.

@@ -34,7 +34,7 @@ O núcleo em `components/auditor` não depende de FreeRTOS, câmera ou relógio 
 
 A captura usa JPEG QQVGA e um único framebuffer DRAM para não pressupor PSRAM. O primeiro buffer é descartado a cada captura para evitar reutilização de uma imagem anterior. Antes de decodificar, confere-se o tamanho do JPEG, limitando a saída ao buffer RGB. A imagem é convertida em cinza com pesos inteiros. O recorte é reduzido por médias de blocos a 1024 intensidades; uma grade de até 192 pontos acompanha o entorno, excluindo os pontos dentro da ROI e normalizando pela quantidade efetivamente usada.
 
-A comparação utiliza a média da diferença absoluta de intensidade, sem depender de treinamento. Uma classe só é aceita se:
+A comparação com as referências usa a **média das 10% maiores diferenças** entre as 1024 células da ROI, sem depender de treinamento. Um comprimido pequeno muda poucas células com força; a média da ROI inteira o diluiria abaixo do ruído do JPEG (na bancada, um comprimido em ~4% da ROI deu 5,3 pela média e 31,8 pelo top 10%, contra ruído de 2,7 e 8,9). Se o comprimido muda de lugar, ele difere das duas referências e a leitura fica inconclusiva, nunca “vazio”. A estabilidade entre quadros e o entorno continuam usando a média, adequada para movimento e luz globais. Uma classe só é aceita se:
 
 1. As duas referências estão válidas e suficientemente separadas.
 2. A imagem não é predominantemente escura ou saturada.

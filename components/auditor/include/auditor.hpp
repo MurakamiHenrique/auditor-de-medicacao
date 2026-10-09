@@ -17,7 +17,7 @@ struct Roi { int x = 40, y = 24, w = 80, h = 72; };
 struct Settings {
     Roi roi{};
     int hour = 8, minute = 0, window_s = 60, interval_s = 5, confirmations = 2;
-    float max_distance = 18, margin = 5, context_distance = 20, stability = 8;
+    float max_distance = 18, margin = 8, context_distance = 20, stability = 8;
     int profile = 0; // 0 unconfirmed, 1 AI Thinker, 2 WROVER KIT
     int late_s = 1800; // extra monitoring after an alert; 0 disables
     bool enabled = true; // daily schedule active
@@ -31,7 +31,10 @@ struct Result { Observation label = Observation::Unknown; float present = 255, e
 bool valid(const Settings &s);
 bool same_roi(const Roi &a, const Roi &b);
 bool extract(const uint8_t *gray, size_t len, const Roi &roi, Sample &out);
-float distance(const uint8_t *a, const uint8_t *b, size_t n);
+float distance(const uint8_t *a, const uint8_t *b, size_t n); // mean absolute difference
+// Mean of the largest 10% cell differences between two ROI features. A small pill changes few
+// cells strongly; the whole-ROI mean would dilute it below the JPEG noise.
+float roi_distance(const Feature &a, const Feature &b);
 float context_distance(const Sample &a, const Sample &b);
 bool calibrated(const Calibration &c, const Settings &s);
 Result classify(const Sample &sample, const Calibration &c, const Settings &s);

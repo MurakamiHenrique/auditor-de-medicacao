@@ -18,7 +18,7 @@ Cada comando pode incluir `id` numérico; a resposta `event=reply` repete esse i
 | Perfil | `{"cmd":"set","profile":1}` | 0 desativado; 1 AI Thinker; 2 WROVER KIT; trocar apaga referências |
 | ROI | `{"cmd":"set","roi":[40,24,80,72]}` | x,y,largura,altura; trocar apaga referências |
 | Agenda | `{"cmd":"set","hour":8,"minute":0,"window_s":1800,"interval_s":5,"late_s":1800,"enabled":true}` | Salva e recalcula a próxima verificação |
-| Limiares | `{"cmd":"set","max_distance":18,"margin":5,"context_distance":20,"stability":8,"confirmations":2}` | Ajuste experimental |
+| Limiares | `{"cmd":"set","max_distance":18,"margin":8,"context_distance":20,"stability":8,"confirmations":2}` | Ajuste experimental |
 | Vazio | `{"cmd":"calibrate","label":"empty"}` | Coleta cinco amostras, valida estabilidade e salva referência |
 | Presente | `{"cmd":"calibrate","label":"present"}` | Idem; valida separação entre classes quando ambas existem |
 | Limpar referências | `{"cmd":"clear_calibration"}` | Remove referências; a agenda para até nova calibração |

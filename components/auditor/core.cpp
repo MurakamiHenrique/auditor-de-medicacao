@@ -40,6 +40,17 @@ float distance(const uint8_t *a, const uint8_t *b, size_t n) {
     for(size_t i=0;i<n;++i) sum+=std::abs(int(a[i])-int(b[i]));
     return float(sum)/float(n);
 }
+float roi_distance(const Feature &a, const Feature &b) {
+    uint16_t histogram[256]{};
+    for(int i=0;i<N;++i) ++histogram[std::abs(int(a[i])-int(b[i]))];
+    constexpr int K=N/10;
+    int taken=0; uint32_t sum=0;
+    for(int d=255;d>=0 && taken<K;--d) {
+        int n=std::min(int(histogram[d]),K-taken);
+        sum+=uint32_t(n*d); taken+=n;
+    }
+    return float(sum)/K;
+}
 float context_distance(const Sample &a, const Sample &b) {
     if(a.context_count<32 || a.context_count>GUARD || a.context_count!=b.context_count) return 255;
     return distance(a.context.data(),b.context.data(),a.context_count);
@@ -74,16 +85,16 @@ bool extract(const uint8_t *gray, size_t len, const Roi &r, Sample &out) {
 }
 bool calibrated(const Calibration &c, const Settings &s) {
     return valid(s) && c.has_present && c.has_empty && c.present.quality && c.empty.quality &&
-        distance(c.present.roi.data(),c.empty.roi.data(),N)>2*s.margin &&
+        roi_distance(c.present.roi,c.empty.roi)>2*s.margin &&
         context_distance(c.present,c.empty)<=s.stability;
 }
 Result classify(const Sample &v, const Calibration &c, const Settings &s) {
     Result r;
     if(!v.quality || !calibrated(c,s)) return r;
-    r.present=distance(v.roi.data(),c.present.roi.data(),N);
-    r.empty=distance(v.roi.data(),c.empty.roi.data(),N);
+    r.present=roi_distance(v.roi,c.present.roi);
+    r.empty=roi_distance(v.roi,c.empty.roi);
     r.context=std::min(context_distance(v,c.present),context_distance(v,c.empty));
-    float separation=distance(c.present.roi.data(),c.empty.roi.data(),N);
+    float separation=roi_distance(c.present.roi,c.empty.roi);
     float radius=std::min(s.max_distance,separation*0.45f);
     if(r.context>s.context_distance || std::abs(r.present-r.empty)<s.margin) return r;
     if(r.present<=radius && r.present<r.empty) r.label=Observation::Present;

@@ -333,7 +333,7 @@ void handle(const char *input) {
                 if(present) { next.present=sample; next.has_present=true; }
                 else { next.empty=sample; next.has_empty=true; }
                 if(next.has_present && next.has_empty && !calibrated(next,settings)) {
-                    float gap=distance(next.present.roi.data(),next.empty.roi.data(),N), around=context_distance(next.present,next.empty);
+                    float gap=roi_distance(next.present.roi,next.empty.roi), around=context_distance(next.present,next.empty);
                     if(around>settings.stability)
                         snprintf(why,sizeof(why),"Entorno mudou entre as referencias (%.1f; limite %.0f): camera ou caixa se moveu. Recalibre a outra referencia",
                                  around,settings.stability);
