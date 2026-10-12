@@ -4,7 +4,7 @@ Este documento explica o código do Auditor Visual de Medicação (versão 2.0.0
 
 ## Objetivo e escopo
 
-O equipamento observa **um compartimento** e, **uma vez por dia**, no horário configurado, compara a cena com referências calibradas de compartimento vazio e com dose. O processamento e a decisão ocorrem no ESP32. O resultado é enviado ao cuidador pelo Telegram. Depois de configurado, o aparelho funciona apenas ligado a uma fonte, sem computador. A retirada visual não comprova a ingestão, não identifica medicamentos e não reconhece pessoas.
+O equipamento observa **um compartimento** e, **uma vez por dia**, no horário configurado, compara a cena com uma referência calibrada do compartimento vazio: qualquer objeto que apareça nele é tratado como dose. O processamento e a decisão ocorrem no ESP32. O resultado é enviado ao cuidador pelo Telegram. Depois de configurado, o aparelho funciona apenas ligado a uma fonte, sem computador. A retirada visual não comprova a ingestão, não identifica medicamentos e não reconhece pessoas.
 
 A agenda arma sozinha quando há hora válida (SNTP), câmera e calibração. A retirada só é confirmada depois de a dose ter sido vista na janela e de duas observações consecutivas de vazio. Uma cena ambígua, instável, escura, saturada ou encoberta gera resultado inconclusivo ou falha, nunca uma retirada automática.
 
@@ -55,19 +55,20 @@ A câmera captura JPEG QQVGA, 160 × 120, com um framebuffer. O primeiro buffer 
 
 A ROI deve estar dentro da imagem, ter no mínimo 32 × 32 pixels e ocupar no máximo 75% da cena. Ela é reduzida a 32 × 32 por médias de blocos. Até 192 pontos fora da ROI acompanham o entorno e ajudam a rejeitar deslocamento e mudança global de iluminação.
 
-A distância às referências é a média das 10% maiores diferenças entre as células da ROI, para que comprimidos pequenos não se diluam na média; a estabilidade entre quadros e o entorno usam a média das diferenças. A classificação só é aceita quando:
+A classificação compara a leitura com **uma única referência, o compartimento vazio**:
 
-- há duas referências válidas;
-- a separação entre elas é maior que `2 * margin`;
-- o entorno está estável;
-- a diferença entre as duas distâncias supera `margin`;
-- a distância escolhida fica abaixo do limite configurado e de 45% da separação.
+- remove-se a mudança global de brilho (diferença mediana, `offset`);
+- uma célula mudou quando difere do vazio mais que `max(change, ruído + margin)`;
+- **presente** quando o maior grupo de células mudadas vizinhas tem pelo menos `min_cells`; **vazio** quando não passa de `min_cells/2` e há menos de `min_cells` células mudadas; o meio é inconclusivo;
+- inconclusivo também com imagem escura/saturada, entorno diferente do vazio ou `offset` acima de `context_distance`.
+
+Assim, qualquer comprimido em qualquer posição é reconhecido. A estabilidade entre quadros e o entorno usam a média das diferenças.
 
 ## Calibração
 
-Cada comando de calibração coleta cinco quadros. O primeiro define a cena; os seguintes precisam permanecer próximos dele. A referência é salva como `present` ou `empty`. Ao concluir as duas referências, o firmware rejeita cenas pouco separadas ou com entorno instável.
+“Calibrar VAZIO” coleta cinco quadros; o primeiro define a cena e os seguintes precisam permanecer próximos dele. A referência é a média dos cinco, e o ruído é o pior percentil 99 de cada quadro contra essa média. “Conferir comprimido” (`label=present`) coleta cinco quadros com uma dose e só informa se ela se destaca (tamanho da mancha e diferença); nada é salvo. Uma calibração da versão anterior (cheio/vazio) não é reaproveitada: após a atualização, perfil, ROI e agenda são mantidos e é preciso calibrar o VAZIO de novo.
 
-Padrões: ROI `[40,24,80,72]`, perfil `0`, horário `08:00`, janela de 60 s, intervalo de 5 s, observação extra após alerta de 1800 s, duas confirmações, distância máxima 18, margem 8, distância de contexto 20 e estabilidade 8. Para uso real, uma tolerância de 30 min (`window_s=1800`) é mais adequada que os 60 s de demonstração.
+Padrões: ROI `[40,24,80,72]`, perfil `0`, horário `08:00`, janela de 60 s, intervalo de 5 s, observação extra após alerta de 1800 s, duas confirmações, `change` 20, `margin` 8, `min_cells` 6, distância de contexto 20 e estabilidade 8. Para uso real, uma tolerância de 30 min (`window_s=1800`) é mais adequada que os 60 s de demonstração.
 
 ## Agenda e máquina de estados
 
@@ -106,7 +107,7 @@ Comandos são JSON Lines terminados por LF, com no máximo 511 bytes:
 {"cmd":"telegram","token":"123456:ABC...","chat_id":"987654321","id":2}
 {"cmd":"set","profile":1,"roi":[40,24,80,72],"id":3}
 {"cmd":"calibrate","label":"empty","id":4}
-{"cmd":"calibrate","label":"present","id":5}
+{"cmd":"calibrate","label":"present","id":5}   (opcional: só confere o contraste)
 {"cmd":"set","hour":8,"minute":0,"window_s":1800,"enabled":true,"id":6}
 {"cmd":"arm","delay_s":10,"id":7}
 ```
@@ -131,7 +132,7 @@ Ao mudar `sdkconfig.defaults`, apague `sdkconfig.esp32cam` antes de compilar. O 
 Os testes C++ compilam o mesmo núcleo do firmware e cobrem:
 
 - ROI, imagens inválidas e cenas escuras/saturadas;
-- referências, instabilidade e oclusão sintética;
+- referência vazia, comprimido pequeno, diferente, deslocado e duplo, migalha, mudança de luz, ruído, instabilidade e oclusão sintética;
 - cálculo da próxima janela, inclusive virada de meia-noite e retomada;
 - `not_loaded`, `alert` com retirada tardia, persistência temporal, atrasos e prazos.
 

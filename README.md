@@ -4,13 +4,13 @@ Firmware para o **ESP32 clássico com câmera OV2640** ([ESP32-CAM com gravador 
 
 Depois de configurado, o aparelho funciona **apenas ligado a uma fonte**, sem computador: obtém a hora por Wi-Fi (SNTP), arma sozinho a verificação de cada dia, captura e classifica na própria placa e envia o aviso. O computador só é usado para cadastrar Wi-Fi, Telegram, horário, recorte e calibração. A observação de retirada **não comprova ingestão**.
 
-O projeto usa ESP-IDF e o driver oficial [espressif/esp32-camera](https://github.com/espressif/esp32-camera). A comparação de referências segue o método especificado na Tarefa 02; não há rede neural nem pesos fictícios de treinamento.
+O projeto usa ESP-IDF e o driver oficial [espressif/esp32-camera](https://github.com/espressif/esp32-camera). A visão compara cada leitura com a imagem do compartimento vazio (subtração de fundo com câmera fixa): qualquer objeto, em qualquer posição, conta como dose. Não há rede neural nem treinamento.
 
 ## O que está implementado
 
 - Captura JPEG 160 × 120, conversão local para cinza e ROI configurável de um compartimento.
-- Calibração cheio/vazio com cinco amostras estáveis por referência, persistidas em NVS.
-- Classificação `present`, `empty` ou `unknown`, rejeitando distância excessiva, ambiguidade, iluminação extrema e mudanças no entorno.
+- Calibração só do compartimento vazio (cinco amostras estáveis e medição do ruído), persistida em NVS.
+- Classificação `present` (mancha de células mudadas ≥ `min_cells`), `empty` ou `unknown`, com compensação de brilho e rejeição de iluminação extrema e mudanças no entorno.
 - **Agenda diária automática:** hora por SNTP (UTC−3), janela de tolerância, rearmamento sozinho a cada dia e retomada da janela se o aparelho reiniciar dentro dela.
 - Confirmação de retirada somente depois de ver a dose na janela e de duas ou mais observações vazias consecutivas.
 - Resultados distintos: retirada, compartimento já vazio no horário, alerta de dose não tomada, retirada com atraso e falha de leitura.
@@ -91,11 +91,11 @@ Versões: PlatformIO Core **6.1.18**, plataforma `espressif32` **6.11.0**, frame
 2. Abra o painel, confira a porta (a placa vem selecionada) e conecte. Na aba **Câmera**, aplique o perfil cuja pinagem foi conferida — **perfil 2 na placa RoboCore do grupo**. A câmera deve aparecer como disponível.
 3. Na aba **Wi-Fi e Telegram**, salve a rede e a senha. Em seguida, salve o token e o `chat_id` e clique **Enviar mensagem de teste**. A foto deve chegar no celular do cuidador. O status passa a mostrar `Hora: sntp`.
 4. Clique **Capturar imagem USB**, arraste para selecionar o compartimento e **Salvar ROI**. O recorte deve ter ao menos 32 × 32 pixels e ocupar no máximo 75% da imagem.
-5. Deixe o compartimento vazio, afaste as mãos e clique **Calibrar VAZIO**. Reponha a dose, afaste as mãos e clique **Calibrar PRESENTE**. Use **Testar leitura** para confirmar `present`.
+5. Deixe o compartimento vazio, afaste as mãos e clique **Calibrar VAZIO**. Opcional: coloque o menor comprimido e clique **Conferir comprimido** para ver se ele se destaca. Use **Testar leitura** com e sem dose para confirmar `present` e `empty`.
 6. Na aba **Agenda**, defina hora, minuto e tolerância (por exemplo, 1800 s = 30 min), mantenha **Verificação diária ativa** e salve. O estado muda para **AGENDADO**, com a data e a hora da próxima verificação.
 7. Desconecte o computador e ligue a placa na fonte. Em até 2 minutos chega o aviso 🔌 “Auditor ligado”, com a próxima verificação.
 
-**Ensaio rápido:** com o painel conectado, use **Teste: verificar em 10 s** (avisos marcados `[TESTE]`). Retire a dose dentro da janela: deve chegar ✅. Em outro teste, deixe a dose: deve chegar 🔔 com foto e, se você a retirar durante o período extra (`late_s`), ✅ “retirada com atraso”. Cubra a câmera: deve chegar ❌, nunca retirada. Depois de cada teste, a agenda diária volta sozinha.
+**Ensaio rápido:** com o painel conectado, use **Teste: verificar em 10 s** (avisos marcados 🧪 “Teste de demonstração”). Retire a dose dentro da janela: deve chegar ✅. Em outro teste, deixe a dose: deve chegar 🔔 com foto e, se você a retirar durante o período extra (`late_s`), ✅ “retirada com atraso”. Cubra a câmera: deve chegar ❌, nunca retirada. Depois de cada teste, a agenda diária volta sozinha.
 
 ## Uso diário
 
@@ -103,6 +103,7 @@ O cuidador repõe a dose a qualquer momento antes do horário. No horário, o ap
 
 | Aviso | Quando |
 |---|---|
+| ⏰ Hora da dose | A janela começou: a agenda disparou no horário programado |
 | ✅ Dose retirada | A dose foi vista e depois o compartimento ficou vazio |
 | ⚠️ Compartimento já vazio (com foto) | Vazio desde o início da janela: dose não reposta ou tomada antes da hora |
 | 🔔 Dose não retirada (com foto) | A dose continua lá no fim da tolerância; o aparelho segue observando por `late_s` |
@@ -128,7 +129,7 @@ Digite `status`, `snapshot`, `sample`, `cancel`, `test_notify` ou comandos JSON.
 .\.venv\Scripts\python.exe tools/run_tests.py
 ```
 
-Os testes compilam o núcleo C++ efetivo. Casos incluem limites da ROI, rejeição de referências, comprimido pequeno e deslocado, oclusão simulada, persistência temporal, cálculo da próxima janela (inclusive virada de meia-noite e retomada após reinício), `not_loaded`, alerta com retirada tardia, prazo vencido e captura atrasada. A CI roda os testes no Ubuntu e no macOS. Testes sintéticos não medem acurácia com medicamentos reais, e o Wi-Fi/Telegram só pode ser verificado na placa.
+Os testes compilam o núcleo C++ efetivo. Casos incluem limites da ROI, referência vazia, comprimido pequeno, diferente, deslocado e duplo, migalha, mudança de luz, ruído, oclusão simulada, persistência temporal, cálculo da próxima janela (inclusive virada de meia-noite e retomada após reinício), `not_loaded`, alerta com retirada tardia, prazo vencido e captura atrasada. A CI roda os testes no Ubuntu e no macOS. Testes sintéticos não medem acurácia com medicamentos reais, e o Wi-Fi/Telegram só pode ser verificado na placa.
 
 Leia o [protocolo de bancada](docs/VALIDACAO.md) para os ensaios. [Arquitetura e rastreabilidade](docs/ARQUITETURA.md) mapeiam as funções aos requisitos. [Verificação de software](docs/VERIFICACAO.md) registra o que foi efetivamente executado.
 

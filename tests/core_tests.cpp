@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
 #include <limits>
 #include <random>
 using namespace auditor;
@@ -20,25 +21,62 @@ int main() {
     bad=s; bad.confirmations=100000; bad.interval_s=100000; CHECK(!valid(bad));
     bad=s; bad.window_s=5; CHECK(!valid(bad));
     bad=s; bad.margin=std::numeric_limits<float>::quiet_NaN(); CHECK(!valid(bad));
-    bad=s; bad.max_distance=std::numeric_limits<float>::infinity(); CHECK(!valid(bad));
     bad=s; bad.hour=24; CHECK(!valid(bad));
+    bad=s; bad.change=std::numeric_limits<float>::infinity(); CHECK(!valid(bad));
+    bad=s; bad.change=4; CHECK(!valid(bad));
+    bad=s; bad.min_cells=0; CHECK(!valid(bad));
+    bad=s; bad.min_cells=N; CHECK(!valid(bad));
     std::array<uint8_t,W*H> img{};
     img.fill(100);
-    Sample empty,present;
+    Sample empty;
     CHECK(extract(img.data(),img.size(),s.roi,empty)); CHECK(empty.quality);
     CHECK(!extract(img.data(),img.size()-1,s.roi,empty));
     CHECK(!extract(nullptr,img.size(),s.roi,empty));
-    // Synthetic object occupies most of the test compartment, no scene change.
-    for(int y=s.roi.y;y<s.roi.y+s.roi.h;++y)
-        for(int x=s.roi.x;x<s.roi.x+s.roi.w;++x) img[y*W+x]=180;
-    CHECK(extract(img.data(),img.size(),s.roi,present));
-    Calibration refs; refs.present=present; refs.empty=empty;
+    Calibration refs; refs.empty=empty;
     CHECK(!calibrated(refs,s));
-    refs.has_present=refs.has_empty=true; CHECK(calibrated(refs,s));
-    CHECK(classify(present,refs,s).label==Observation::Present);
+    refs.has_empty=true; CHECK(calibrated(refs,s));
+    CHECK(cell_threshold(refs,s)==s.change);
+    Calibration noisy=refs; noisy.noise=30; CHECK(cell_threshold(noisy,s)==30+s.margin);
+    noisy.noise=std::numeric_limits<float>::quiet_NaN(); CHECK(!calibrated(noisy,s));
+    auto low=refs; low.empty.quality=false; CHECK(!calibrated(low,s));
     CHECK(classify(empty,refs,s).label==Observation::Empty);
-    auto unknown=empty; unknown.roi.fill(140);
-    CHECK(classify(unknown,refs,s).label==Observation::Unknown);
+    CHECK(classify(empty,Calibration{},s).label==Observation::Unknown);
+
+    // Any dose, anywhere: only the empty compartment is a reference (80x72 ROI at 40,24).
+    auto scene=[&](std::initializer_list<std::array<int,5>> pills, int shift=0) {
+        std::array<uint8_t,W*H> frame{}; frame.fill(uint8_t(100+shift));
+        for(auto p:pills) for(int y=p[1];y<p[1]+p[3];++y) for(int x=p[0];x<p[0]+p[2];++x) frame[y*W+x]=uint8_t(p[4]+shift);
+        Sample out; extract(frame.data(),frame.size(),s.roi,out); return out;
+    };
+    Sample pill=scene({{50,30,16,14,230}}); // small white pill, ~4% of the ROI
+    auto r=classify(pill,refs,s);
+    CHECK(r.label==Observation::Present); CHECK(r.change.blob>=30); CHECK(std::abs(r.change.offset)<1);
+    CHECK(classify(scene({{95,70,16,14,230}}),refs,s).label==Observation::Present); // moved
+    CHECK(classify(scene({{70,50,10,10,40}}),refs,s).label==Observation::Present);  // other, darker pill
+    CHECK(classify(scene({{42,26,30,8,200}}),refs,s).label==Observation::Present);  // long capsule at the edge
+    CHECK(classify(scene({{50,30,16,14,230},{90,60,12,12,180}}),refs,s).label==Observation::Present); // two pills
+    CHECK(classify(scene({{70,50,2,2,230}}),refs,s).label==Observation::Empty); // crumb: one or two cells
+    CHECK(classify(scene({{50,30,16,14,112}}),refs,s).label==Observation::Empty); // faint: below threshold
+    CHECK(classify(scene({{50,30,16,14,112}}),refs,s).change.blob==0);
+    noisy=refs; noisy.noise=150; // a dose below the calibrated noise is not trusted
+    CHECK(classify(pill,noisy,s).label!=Observation::Present);
+
+    // Light: a moderate global shift is compensated; a large one is unknown, never empty.
+    CHECK(classify(scene({},15),refs,s).label==Observation::Empty);
+    r=classify(scene({{50,30,16,14,215}},15),refs,s);
+    CHECK(r.label==Observation::Present); CHECK(r.change.offset==15);
+    CHECK(classify(scene({},30),refs,s).label==Observation::Unknown);
+    // A change filling the whole ROI looks like light, not a dose: unknown.
+    {
+        std::array<uint8_t,W*H> frame{}; frame.fill(100);
+        for(int y=s.roi.y;y<s.roi.y+s.roi.h;++y) for(int x=s.roi.x;x<s.roi.x+s.roi.w;++x) frame[y*W+x]=180;
+        Sample full; CHECK(extract(frame.data(),frame.size(),s.roi,full));
+        CHECK(classify(full,refs,s).label==Observation::Unknown);
+    }
+    // Scattered single cells (noise, not an object): neither present nor empty.
+    auto unknown=empty; for(int i=0;i<N;i+=64) unknown.roi[i]=uint8_t(unknown.roi[i]+60);
+    r=classify(unknown,refs,s);
+    CHECK(r.label==Observation::Unknown); CHECK(r.change.blob==1 && r.change.cells==16);
     unknown=empty; unknown.quality=false;
     CHECK(classify(unknown,refs,s).label==Observation::Unknown);
     unknown=empty; unknown.context.fill(255);
@@ -48,10 +86,19 @@ int main() {
     CHECK(classify(unknown,refs,s).label==Observation::Unknown);
     unknown=empty; unknown.context_count=0;
     CHECK(classify(unknown,refs,s).label==Observation::Unknown);
-    Calibration identical=refs; identical.present=identical.empty;
-    CHECK(!calibrated(identical,s));
-    img.fill(0); Sample black;
-    CHECK(extract(img.data(),img.size(),s.roi,black)); CHECK(!black.quality);
+
+    // Sensor noise of +-6 levels: empty stays empty and the measured noise stays small.
+    {
+        std::mt19937 rng(7);
+        std::array<uint8_t,W*H> frame{};
+        for(auto &p:frame) p=uint8_t(100+int(rng()%13)-6);
+        Sample grainy; CHECK(extract(frame.data(),frame.size(),s.roi,grainy));
+        CHECK(noise_level(grainy.roi,empty.roi)<=6);
+        CHECK(classify(grainy,refs,s).label==Observation::Empty);
+        CHECK(noise_level(empty.roi,empty.roi)==0);
+    }
+    Sample black;
+    img.fill(0); CHECK(extract(img.data(),img.size(),s.roi,black)); CHECK(!black.quality);
     img.fill(255); CHECK(extract(img.data(),img.size(),s.roi,black)); CHECK(!black.quality);
     // Valid ROI at image boundary remains in bounds; random image stress.
     Settings edge=s; edge.roi={128,88,32,32}; CHECK(valid(edge));
@@ -59,24 +106,8 @@ int main() {
     for(int trial=0;trial<100;++trial) {
         for(auto &p:img) p=uint8_t(rng());
         CHECK(extract(img.data(),img.size(),edge.roi,black));
-        auto r=classify(black,refs,edge); CHECK(std::isfinite(r.empty));
-    }
-    // Small pill: 16x14 px, ~4% of the 80x72 ROI, as measured with a real capsule on the bench.
-    {
-        std::array<uint8_t,W*H> scene{}; scene.fill(100);
-        Sample bare,pill,moved;
-        CHECK(extract(scene.data(),scene.size(),s.roi,bare));
-        auto put=[&](int x0,int y0,uint8_t v){ for(int y=y0;y<y0+14;++y) for(int x=x0;x<x0+16;++x) scene[y*W+x]=v; };
-        put(50,30,230); CHECK(extract(scene.data(),scene.size(),s.roi,pill));
-        put(50,30,100); put(95,70,230); CHECK(extract(scene.data(),scene.size(),s.roi,moved));
-        CHECK(distance(pill.roi.data(),bare.roi.data(),N)<2*s.margin); // whole-ROI mean dilutes it
-        CHECK(roi_distance(pill.roi,bare.roi)>2*s.margin);
-        Calibration small; small.present=pill; small.empty=bare; small.has_present=small.has_empty=true;
-        CHECK(calibrated(small,s));
-        CHECK(classify(pill,small,s).label==Observation::Present);
-        CHECK(classify(bare,small,s).label==Observation::Empty);
-        // Moved pill differs from both references: inconclusive, never a removal.
-        CHECK(classify(moved,small,s).label==Observation::Unknown);
+        auto random=classify(black,refs,edge); CHECK(std::isfinite(random.change.top));
+        CHECK(random.change.blob<=random.change.cells && random.change.cells<=N);
     }
 
     // Daily schedule: offset to the next window start, resuming an open window.

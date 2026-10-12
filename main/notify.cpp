@@ -75,18 +75,20 @@ int deliver(const Item &item, const char *tok, const char *to) {
     if(!item.jpeg) {
         auto *j=cJSON_CreateObject();
         cJSON_AddStringToObject(j,"chat_id",to); cJSON_AddStringToObject(j,"text",item.text);
+        cJSON_AddStringToObject(j,"parse_mode","HTML");
         char *body=cJSON_PrintUnformatted(j); cJSON_Delete(j);
         if(!body) return -1;
         Part part{body,strlen(body)};
         int status=post(tok,"sendMessage","application/json",&part,1);
         cJSON_free(body); return status;
     }
-    static char head[900];
+    static char head[1024];
     int n=snprintf(head,sizeof(head),
         "--%s\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n%s\r\n"
+        "--%s\r\nContent-Disposition: form-data; name=\"parse_mode\"\r\n\r\nHTML\r\n"
         "--%s\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n%s\r\n"
         "--%s\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"compartimento.jpg\"\r\n"
-        "Content-Type: image/jpeg\r\n\r\n",BOUNDARY,to,BOUNDARY,item.text,BOUNDARY);
+        "Content-Type: image/jpeg\r\n\r\n",BOUNDARY,to,BOUNDARY,BOUNDARY,item.text,BOUNDARY);
     if(n<0 || n>=int(sizeof(head))) return -1;
     char tail[32]; int t=snprintf(tail,sizeof(tail),"\r\n--%s--\r\n",BOUNDARY);
     char type[64]; snprintf(type,sizeof(type),"multipart/form-data; boundary=%s",BOUNDARY);

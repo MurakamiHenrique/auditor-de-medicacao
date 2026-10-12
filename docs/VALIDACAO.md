@@ -37,7 +37,7 @@ Não desconecte o flat energizado. Para retomar de falha de câmera, desligue, c
 
 ## Acurácia por observação
 
-Colete pelo menos **30 observações presentes**, **30 vazias** e **10 de oclusão/falha**, fora das cinco amostras de cada referência. Use `sample` com o ciclo inativo; não reutilize quadros de calibração como teste. Varie posição dos objetos e oclusões dentro do cenário controlado; não recalibre por amostra.
+Colete pelo menos **30 observações presentes**, **30 vazias** e **10 de oclusão/falha**, fora das cinco amostras da referência vazia. Use `sample` com o ciclo inativo; não reutilize quadros de calibração como teste. Varie o tipo de comprimido, a posição dentro do compartimento e as oclusões dentro do cenário controlado; não recalibre por amostra.
 
 Crie um CSV de rótulos humanos associando `ms` ao evento `observation` daquele boot:
 
@@ -65,4 +65,4 @@ Na primeira inicialização, registre também pico/corrente de operação com eq
 
 ## Critério de fechamento
 
-O grupo só deve afirmar cumprimento das metas ópticas/elétricas após anexar logs reais, rótulos, condições de bancada e resultados. Se a resolução ou o contraste não separarem as referências, ajuste primeiro enquadramento, caixa e iluminação. `calibrated=false` é uma condição de configuração válida, não deve ser removida para forçar o armamento.
+O grupo só deve afirmar cumprimento das metas ópticas/elétricas após anexar logs reais, rótulos, condições de bancada e resultados. Se “Conferir comprimido” indicar que a dose não se destaca, ajuste primeiro enquadramento, caixa, fundo e iluminação. `calibrated=false` é uma condição de configuração válida, não deve ser removida para forçar o armamento.

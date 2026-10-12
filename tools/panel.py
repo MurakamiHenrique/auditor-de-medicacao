@@ -15,6 +15,45 @@ STATES = {"idle": "CONFIGURAÇÃO — agenda parada", "armed": "AGENDADO — agu
           "monitoring": "VERIFICANDO A DOSE", "removed": "RETIRADA CONFIRMADA",
           "not_loaded": "COMPARTIMENTO VAZIO NO HORÁRIO", "alert": "ALERTA — dose ainda presente",
           "late_removed": "RETIRADA COM ATRASO", "fault": "FALHA — retirada não confirmada"}
+LABELS = {"present": "PRESENTE", "empty": "VAZIO", "unknown": "INCONCLUSIVA"}
+
+
+def describe(event, cmd=None):
+    """One readable log line per event. None hides it: status already fills the bar above the log."""
+    kind = event.get("event")
+    if kind == "status":
+        return None
+    if kind == "reply":
+        return f"{'OK' if event.get('ok') else 'ERRO'} {cmd or ''}: {event.get('message', '')}"
+    if kind == "observation":
+        label = LABELS.get(event.get("label"), event.get("label"))
+        if not event.get("captured"):
+            return f"Leitura {label}: câmera sem imagem"
+        text = (f"Leitura {label} | mancha {event['blob']} células (mínimo {event['min_cells']}), "
+                f"diferença {event['change']:.0f} (limite {event['threshold']:.0f}), "
+                f"brilho {event['offset']:+.0f}, entorno {event['distance_context']:.1f}")
+        if not event.get("stable"):
+            text += (f" | INSTÁVEL: movimento ROI {event['motion_roi']:.1f}, "
+                     f"entorno {event['motion_context']:.1f} (limite 8)")
+        return text + f" | {event['duration_ms']:.0f} ms"
+    if kind == "transition":
+        return (f"Estado: {STATES.get(event['from'], event['from'])} → {STATES.get(event['state'], event['state'])}"
+                + (" [TESTE]" if event.get("demo") else ""))
+    if kind == "notify":
+        if "error" in event:
+            return "Telegram: " + event["error"]
+        if event.get("delivered"):
+            return f"Telegram: entregue{' com foto' if event.get('photo') else ''} (tentativa {event['attempt']})"
+        return (f"Telegram: falhou (HTTP {event['status']}, tentativa {event['attempt']}); "
+                + ("desistiu" if event.get("final") else "vai tentar de novo"))
+    if kind == "wifi":
+        return f"Wi-Fi conectado ({event['rssi']} dBm)" if event.get("connected") else "Wi-Fi desconectado"
+    if kind == "clock":
+        return (f"Hora obtida por {event.get('source')}: "
+                + datetime.fromtimestamp(event["epoch"]).strftime("%d/%m %H:%M:%S"))
+    if kind == "boot":
+        return f"Placa iniciada: versão {event.get('version')}, motivo {event.get('reset_reason')}"
+    return json.dumps(event, ensure_ascii=False)
 
 
 class Panel:
@@ -60,7 +99,7 @@ class Panel:
         self.camera_tab(tabs)
         self.schedule_tab(tabs)
         self.network_tab(tabs)
-        self.info = tk.StringVar(value="Configure Wi-Fi, Telegram, pinagem, ROI e as duas referências. "
+        self.info = tk.StringVar(value="Configure Wi-Fi, Telegram, pinagem, ROI e a referência VAZIO. "
                                        "Depois disso o aparelho funciona sem o computador.")
         ttk.Label(root, textvariable=self.info, wraplength=950).pack(fill="x", padx=10)
         self.output = tk.Text(root, height=10, state="disabled", wrap="word")
@@ -76,9 +115,10 @@ class Panel:
         ttk.Button(tab, text="Aplicar perfil de pinagem", command=lambda: self.send("set", profile=self.profile.current())).pack(fill="x")
         self.roi_text = tk.StringVar(value="ROI: 40, 24, 80, 72")
         ttk.Label(tab, textvariable=self.roi_text).pack(pady=(8, 0))
-        ttk.Button(tab, text="Salvar ROI (apaga referências)", command=lambda: self.send("set", roi=self.roi)).pack(fill="x")
+        ttk.Button(tab, text="Salvar ROI (apaga a referência)", command=lambda: self.send("set", roi=self.roi)).pack(fill="x")
         ttk.Button(tab, text="1. Calibrar VAZIO", command=lambda: self.send("calibrate", label="empty")).pack(fill="x", pady=(8, 3))
-        ttk.Button(tab, text="2. Calibrar PRESENTE", command=lambda: self.send("calibrate", label="present")).pack(fill="x")
+        ttk.Button(tab, text="2. Conferir comprimido (opcional, não salva)",
+                   command=lambda: self.send("calibrate", label="present")).pack(fill="x")
         ttk.Button(tab, text="Testar leitura (envia ao Telegram)",
                    command=lambda: self.send("sample", notify=True)).pack(fill="x", pady=3)
         ttk.Button(tab, text="Limpar calibração", command=lambda: self.send("clear_calibration")).pack(fill="x")
@@ -179,7 +219,9 @@ class Panel:
             payload = {"cmd": cmd, "id": self.seq, **kwargs}
             self.link.write(encode_command(payload))
             self.pending[self.seq] = (cmd, time.monotonic())
-            self.write("> " + json.dumps(redact(payload), ensure_ascii=False))
+            args = {k: v for k, v in redact(payload).items() if k not in ("cmd", "id")}
+            self.write(datetime.now().strftime("%H:%M:%S > ") + cmd
+                       + (" " + json.dumps(args, ensure_ascii=False) if args else ""))
         except (ValueError, serial.SerialException) as exc:
             messagebox.showerror("Comando", str(exc))
 
@@ -271,7 +313,10 @@ class Panel:
                 except (ValueError, tk.TclError) as exc:
                     self.write("Imagem inválida: " + str(exc))
             else:
-                self.write(raw)
+                cmd = self.pending.get(event.get("id"), (None,))[0] if kind == "reply" else None
+                line = describe(event, cmd)
+                if line:
+                    self.write(datetime.now().strftime("%H:%M:%S ") + line)
             if kind == "reply":
                 self.pending.pop(event.get("id"), None)
                 if not event.get("ok"):

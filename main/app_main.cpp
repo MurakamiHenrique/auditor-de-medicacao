@@ -79,8 +79,9 @@ void status() {
     cJSON_AddBoolToObject(j,"camera_ready",camera_ready);
     cJSON_AddBoolToObject(j,"storage_ready",storage_ready);
     cJSON_AddBoolToObject(j,"calibrated",calibrated(calibration,settings));
-    cJSON_AddBoolToObject(j,"has_present",calibration.has_present);
     cJSON_AddBoolToObject(j,"has_empty",calibration.has_empty);
+    cJSON_AddNumberToObject(j,"noise",calibration.noise);
+    cJSON_AddNumberToObject(j,"threshold",cell_threshold(calibration,settings));
     cJSON_AddBoolToObject(j,"wifi_configured",network_configured());
     cJSON_AddBoolToObject(j,"wifi_connected",network_connected());
     cJSON_AddNumberToObject(j,"rssi",network_rssi());
@@ -103,50 +104,86 @@ void status() {
     cJSON_AddNumberToObject(s,"window_s",settings.window_s); cJSON_AddNumberToObject(s,"interval_s",settings.interval_s);
     cJSON_AddNumberToObject(s,"late_s",settings.late_s);
     cJSON_AddNumberToObject(s,"confirmations",settings.confirmations);
-    cJSON_AddNumberToObject(s,"max_distance",settings.max_distance); cJSON_AddNumberToObject(s,"margin",settings.margin);
+    cJSON_AddNumberToObject(s,"change",settings.change); cJSON_AddNumberToObject(s,"margin",settings.margin);
+    cJSON_AddNumberToObject(s,"min_cells",settings.min_cells);
     cJSON_AddNumberToObject(s,"context_distance",settings.context_distance); cJSON_AddNumberToObject(s,"stability",settings.stability);
     int roi[]={settings.roi.x,settings.roi.y,settings.roi.w,settings.roi.h};
     cJSON_AddItemToObject(s,"roi",cJSON_CreateIntArray(roi,4)); emit(j);
 }
+// Weekday and date in Portuguese ("sáb 12/10"); newlib only knows English names.
+void day_text(char *out, size_t n, int64_t epoch) {
+    static const char *days[]={"dom","seg","ter","qua","qui","sex","sáb"};
+    time_t t=time_t(epoch); tm local{}; localtime_r(&t,&local);
+    snprintf(out,n,"%s %02d/%02d",days[local.tm_wday%7],local.tm_mday,local.tm_mon+1);
+}
+// Messages use Telegram HTML (<b>, <i>) and only text generated here, so nothing needs escaping.
 // Photo only for results the caregiver must check; never older than the current window.
 void send_result(State state) {
-    char dose[8], at[8], text[400];
+    char dose[8], at[8], text[500];
     clock_text(dose,sizeof(dose),epoch_at(cycle.start()),"%H:%M");
     if(!resumed && !demo) snprintf(dose,sizeof(dose),"%02d:%02d",settings.hour,settings.minute);
     clock_text(at,sizeof(at),epoch_at(mono()),"%H:%M");
-    const char *prefix=demo?"[TESTE] ":"";
-    const char *suffix=resumed?"\n(Janela retomada após reinício do aparelho.)":"";
+    const char *test=demo?"\U0001f9ea <i>Teste de demonstração</i>\n":"";
+    const char *note=resumed?"\n↩️ <i>Janela retomada após reinício do aparelho.</i>":"";
     bool photo=false;
     switch(state) {
         case State::Removed:
-            snprintf(text,sizeof(text),"%s✅ Dose das %s retirada (confirmado às %s).%s",prefix,dose,at,suffix); break;
+            snprintf(text,sizeof(text),"%s✅ <b>Dose tomada</b>\n\U0001f48a Dose das %s\n\U0001f552 Retirada confirmada às %s%s",
+                     test,dose,at,note); break;
         case State::LateRemoved:
-            snprintf(text,sizeof(text),"%s✅ Dose das %s retirada com atraso (confirmado às %s).",prefix,dose,at); break;
+            snprintf(text,sizeof(text),"%s✅ <b>Dose tomada com atraso</b>\n\U0001f48a Dose das %s\n\U0001f552 Retirada confirmada às %s",
+                     test,dose,at); break;
         case State::NotLoaded:
-            snprintf(text,sizeof(text),"%s⚠️ Dose das %s: o compartimento já estava vazio no horário. "
-                "A dose não foi reposta ou foi retirada antes da hora.%s",prefix,dose,suffix); photo=true; break;
-        case State::Alert:
-            if(settings.late_s)
-                snprintf(text,sizeof(text),"%s\U0001f514 Dose das %s NÃO foi retirada até %s. "
-                    "Continuo observando por mais %d min e aviso se ela for retirada.%s",prefix,dose,at,settings.late_s/60,suffix);
-            else snprintf(text,sizeof(text),"%s\U0001f514 Dose das %s NÃO foi retirada até %s.%s",prefix,dose,at,suffix);
+            snprintf(text,sizeof(text),"%s⚠️ <b>Compartimento vazio no horário</b>\n\U0001f48a Dose das %s\n"
+                "\U0001f4ed A dose não foi reposta ou foi retirada antes da hora. Confira a foto.%s",test,dose,note);
             photo=true; break;
+        case State::Alert: {
+            char later[120]="";
+            if(settings.late_s) snprintf(later,sizeof(later),"\n\U0001f440 Continuo observando por mais %d min e aviso se ela for retirada.",
+                                         std::max(1,settings.late_s/60));
+            snprintf(text,sizeof(text),"%s\U0001f514 <b>Dose NÃO tomada</b>\n\U0001f48a Dose das %s\n⏰ Ainda no compartimento às %s%s%s",
+                     test,dose,at,later,note);
+            photo=true; break;
+        }
         default:
-            snprintf(text,sizeof(text),"%s❌ Não foi possível verificar a dose das %s: imagem inconclusiva, "
-                "câmera ou iluminação. Confira a caixa.%s",prefix,dose,suffix); photo=true; break;
+            snprintf(text,sizeof(text),"%s❌ <b>Não foi possível verificar</b>\n\U0001f48a Dose das %s\n"
+                "\U0001f4f7 Sem imagem confiável (mão na frente, luz ou caixa fora do lugar). Confira a foto.%s",test,dose,note);
+            photo=true; break;
     }
     size_t len=0; int64_t taken=-1;
     const uint8_t *jpeg=photo?camera_last_jpeg(len,taken):nullptr;
     if(taken<cycle.start()) jpeg=nullptr;
     if(!notify_send(text,jpeg,len)) { auto *j=event("notify"); cJSON_AddStringToObject(j,"error","Telegram nao configurado ou fila cheia"); emit(j); }
 }
+// The window opened: the caregiver sees that the schedule fired at the programmed time.
+void send_start() {
+    char dose[8], length[16], text[300];
+    clock_text(dose,sizeof(dose),epoch_at(cycle.start()),"%H:%M");
+    if(settings.window_s<120) snprintf(length,sizeof(length),"%d s",settings.window_s);
+    else snprintf(length,sizeof(length),"%d min",settings.window_s/60);
+    snprintf(text,sizeof(text),"%s⏰ <b>Hora da dose: %s</b>\n\U0001f4f7 Verificando o compartimento por até %s.%s",
+             demo?"\U0001f9ea <i>Teste de demonstração</i>\n":"",dose,length,
+             resumed?"\n↩️ <i>Janela retomada após reinício do aparelho.</i>":"");
+    notify_send(text);
+}
 void send_boot_notice() {
-    char text[400], next[24]="-";
-    if(cycle.state==State::Armed) clock_text(next,sizeof(next),epoch_at(cycle.start()),"%d/%m %H:%M");
-    const char *missing=!clock_valid()?"sem hora (Wi-Fi/SNTP)":!camera_ready?"câmera indisponível":
-        !calibrated(calibration,settings)?"sem calibração":!settings.enabled?"agenda desativada":nullptr;
-    snprintf(text,sizeof(text),"\U0001f50c Auditor ligado (motivo: %s).\n%s%s\nPróxima verificação: %s",
-             reset_text(),missing?"ATENÇÃO: ":"Pronto.",missing?missing:"",next);
+    char text[500], clock[48]="sem hora", next[48]="—", day[16], hm[8];
+    if(clock_valid()) {
+        int64_t now=epoch_at(mono());
+        day_text(day,sizeof(day),now); clock_text(hm,sizeof(hm),now,"%H:%M");
+        snprintf(clock,sizeof(clock),"%s, %s (%s)",day,hm,clock_source==Clock::Sntp?"internet":"ajuste manual");
+    }
+    if(cycle.state==State::Armed) {
+        int64_t at=epoch_at(cycle.start());
+        day_text(day,sizeof(day),at); clock_text(hm,sizeof(hm),at,"%H:%M");
+        snprintf(next,sizeof(next),"%s às %s",day,hm);
+    }
+    const char *missing=!clock_valid()?"sem hora (confira o Wi-Fi)":!camera_ready?"câmera indisponível":
+        !calibrated(calibration,settings)?"falta calibrar o compartimento VAZIO":!settings.enabled?"agenda desativada":nullptr;
+    if(missing) snprintf(text,sizeof(text),"\U0001f50c <b>Auditor ligado</b>\n\U0001f552 Relógio: %s\n\U0001f501 Motivo: %s\n⚠️ <b>Atenção:</b> %s",
+                         clock,reset_text(),missing);
+    else snprintf(text,sizeof(text),"\U0001f50c <b>Auditor ligado</b>\n\U0001f552 Relógio: %s\n\U0001f501 Motivo: %s\n"
+                  "✅ Pronto. Próxima verificação: <b>%s</b>",clock,reset_text(),next);
     notify_send(text);
 }
 void report_transition(State old) {
@@ -154,6 +191,7 @@ void report_transition(State old) {
     auto *j=event("transition"); cJSON_AddStringToObject(j,"from",name(old));
     cJSON_AddStringToObject(j,"state",name(cycle.state));
     cJSON_AddBoolToObject(j,"demo",demo); cJSON_AddBoolToObject(j,"resumed",resumed); emit(j);
+    if(cycle.state==State::Monitoring) send_start();
     if(notifiable(cycle.state)) {
         last_result=cycle.state; last_result_epoch=epoch_at(mono());
         send_result(cycle.state);
@@ -186,27 +224,32 @@ Result observation() {
     auto *j=event("observation");
     cJSON_AddStringToObject(j,"label",name(r.label));
     cJSON_AddBoolToObject(j,"captured",captured); cJSON_AddBoolToObject(j,"stable",stable);
-    cJSON_AddNumberToObject(j,"distance_present",r.present); cJSON_AddNumberToObject(j,"distance_empty",r.empty);
-    cJSON_AddNumberToObject(j,"distance_context",r.context);
+    cJSON_AddNumberToObject(j,"blob",r.change.blob); cJSON_AddNumberToObject(j,"cells",r.change.cells);
+    cJSON_AddNumberToObject(j,"min_cells",settings.min_cells);
+    cJSON_AddNumberToObject(j,"change",r.change.top); cJSON_AddNumberToObject(j,"threshold",r.threshold);
+    cJSON_AddNumberToObject(j,"offset",r.change.offset); cJSON_AddNumberToObject(j,"distance_context",r.context);
     cJSON_AddNumberToObject(j,"motion_roi",motion_roi); cJSON_AddNumberToObject(j,"motion_context",motion_context);
     cJSON_AddNumberToObject(j,"duration_ms",double(mono()-start)); emit(j); return r;
 }
 // Fills `why` with the failed check and its measured values.
 // Test reading sent to the caregiver chat, with the photo that was just analysed.
 bool send_sample(const Result &r, int64_t since) {
-    char at[8], text[300];
+    char at[8], text[400];
     clock_text(at,sizeof(at),epoch_at(mono()),"%H:%M");
-    const char *what=r.label==Observation::Present?"dose PRESENTE no compartimento":
-        r.label==Observation::Empty?"compartimento VAZIO":
-        "INCONCLUSIVA (imagem instável, escura ou diferente das referências)";
-    snprintf(text,sizeof(text),"\U0001f50e Leitura de teste às %s: %s.\nDistâncias: presente %.1f, vazio %.1f, entorno %.1f.",
-             at,what,r.present,r.empty,r.context);
+    const char *what=r.label==Observation::Present?"\U0001f48a <b>Dose PRESENTE</b> no compartimento":
+        r.label==Observation::Empty?"\U0001f4ed <b>Compartimento VAZIO</b>":
+        "❔ <b>INCONCLUSIVA</b> (imagem instável, escura, cena ou luz diferente da calibração)";
+    snprintf(text,sizeof(text),"\U0001f50e <b>Leitura de teste</b> · %s\n%s\n"
+             "<i>Mancha de %d células (mínimo %d) · diferença %.0f (limite %.0f)</i>",
+             at,what,r.change.blob,settings.min_cells,r.change.top,r.threshold);
     size_t len=0; int64_t taken=-1;
     const uint8_t *jpeg=camera_last_jpeg(len,taken);
     return notify_send(text,taken>=since?jpeg:nullptr,len);
 }
-bool collect(Sample &out, char *why, size_t n) {
+// Averages five stable frames. `noise` gets the worst per-frame noise against that average.
+bool collect(Sample &out, float &noise, char *why, size_t n) {
     Sample first,current;
+    static Feature frames[5];
     if(!take(first)) { snprintf(why,n,"Camera sem imagem: confira perfil e cabo"); return false; }
     if(!first.quality) { snprintf(why,n,"Imagem escura ou saturada: ajuste a iluminacao"); return false; }
     uint32_t sums[N]{}, guard[GUARD]{};
@@ -220,6 +263,7 @@ bool collect(Sample &out, char *why, size_t n) {
                      roi,around,settings.stability);
             return false;
         }
+        frames[k]=current.roi;
         for(int i=0;i<N;++i) sums[i]+=current.roi[i];
         for(int i=0;i<GUARD;++i) guard[i]+=current.context[i];
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -227,6 +271,8 @@ bool collect(Sample &out, char *why, size_t n) {
     for(int i=0;i<N;++i) out.roi[i]=uint8_t(sums[i]/5);
     for(int i=0;i<GUARD;++i) out.context[i]=uint8_t(guard[i]/5);
     out.context_count=first.context_count;
+    noise=0;
+    for(auto &frame:frames) noise=std::max(noise,noise_level(frame,out.roi));
     out.quality=true; return true;
 }
 bool number(cJSON *j,const char *key,int &out) {
@@ -252,7 +298,7 @@ bool update(cJSON *j,Settings &s) {
     if(!number(j,"profile",s.profile) || !number(j,"hour",s.hour) || !number(j,"minute",s.minute) ||
        !number(j,"window_s",s.window_s) || !number(j,"interval_s",s.interval_s) || !number(j,"confirmations",s.confirmations) ||
        !number(j,"late_s",s.late_s) || !flag(j,"enabled",s.enabled) ||
-       !number(j,"max_distance",s.max_distance) || !number(j,"margin",s.margin) ||
+       !number(j,"change",s.change) || !number(j,"min_cells",s.min_cells) || !number(j,"margin",s.margin) ||
        !number(j,"context_distance",s.context_distance) || !number(j,"stability",s.stability)) return false;
     auto *roi=cJSON_GetObjectItemCaseSensitive(j,"roi");
     if(roi) {
@@ -326,23 +372,31 @@ void handle(const char *input) {
         auto *label=text(j,"label");
         if(!label || (strcmp(label,"present") && strcmp(label,"empty"))) reply(j,false,"label: present ou empty");
         else {
-            Calibration next=calibration; bool present=!strcmp(label,"present");
-            Sample sample; char why[200];
-            if(!collect(sample,why,sizeof(why))) reply(j,false,why);
-            else {
-                if(present) { next.present=sample; next.has_present=true; }
-                else { next.empty=sample; next.has_empty=true; }
-                if(next.has_present && next.has_empty && !calibrated(next,settings)) {
-                    float gap=roi_distance(next.present.roi,next.empty.roi), around=context_distance(next.present,next.empty);
-                    if(around>settings.stability)
-                        snprintf(why,sizeof(why),"Entorno mudou entre as referencias (%.1f; limite %.0f): camera ou caixa se moveu. Recalibre a outra referencia",
-                                 around,settings.stability);
-                    else snprintf(why,sizeof(why),"Cheio e vazio muito parecidos (diferenca %.1f; minimo %.0f): aproxime a camera ou reduza a ROI ao compartimento",
-                                  gap,2*settings.margin);
-                    reply(j,false,why);
+            Sample sample; char why[240]; float noise=0;
+            if(!collect(sample,noise,why,sizeof(why))) reply(j,false,why);
+            else if(!strcmp(label,"empty")) {
+                Calibration next; next.empty=sample; next.noise=noise; next.has_empty=true;
+                if(!storage_ready || save_settings(settings,next)!=ESP_OK) reply(j,false,"Falha ao salvar calibracao");
+                else {
+                    calibration=next; reschedule();
+                    snprintf(why,sizeof(why),"Vazio salvo: ruido %.0f, uma celula muda acima de %.0f niveis",
+                             noise,cell_threshold(calibration,settings));
+                    reply(j,true,why); status();
                 }
-                else if(!storage_ready || save_settings(settings,next)!=ESP_OK) reply(j,false,"Falha ao salvar calibracao");
-                else { calibration=next; reschedule(); reply(j,true,"Referencia salva"); status(); }
+            }
+            // A dose only checks the contrast: nothing is saved, any dose in any position counts.
+            else if(!calibrated(calibration,settings)) reply(j,false,"Calibre o compartimento VAZIO primeiro");
+            else {
+                Result r=classify(sample,calibration,settings);
+                if(r.label==Observation::Present)
+                    snprintf(why,sizeof(why),"Comprimido detectado: mancha de %d celulas (minimo %d), diferenca %.0f (limite %.0f)",
+                             r.change.blob,settings.min_cells,r.change.top,r.threshold);
+                else if(r.context>settings.context_distance || std::abs(r.change.offset)>settings.context_distance)
+                    snprintf(why,sizeof(why),"Cena ou luz mudou desde o VAZIO (entorno %.1f, brilho %+.0f; limite %.0f): fixe camera e caixa e recalibre o VAZIO",
+                             r.context,r.change.offset,settings.context_distance);
+                else snprintf(why,sizeof(why),"Comprimido nao se destaca: maior mancha de %d celulas (minimo %d). Aproxime a camera, reduza a ROI ou use fundo que contraste",
+                              r.change.blob,settings.min_cells);
+                reply(j,r.label==Observation::Present,why);
             }
         }
     }
@@ -367,7 +421,7 @@ void handle(const char *input) {
         if(!number(j,"delay_s",delay_s) || delay_s<0 || delay_s>86400) reply(j,false,"delay_s entre 0 e 86400");
         else if(!delay_s) { reschedule(); schedule(); reply(j,cycle.state==State::Armed,
             cycle.state==State::Armed?"Agenda diaria recalculada":"Configure hora, camera, calibracao e agenda ativa"); }
-        else if(!camera_ready || !calibrated(calibration,settings)) reply(j,false,"Configure camera e duas referencias antes do teste");
+        else if(!camera_ready || !calibrated(calibration,settings)) reply(j,false,"Configure a camera e calibre o VAZIO antes do teste");
         else {
             int64_t now=mono(), start=now+int64_t(delay_s)*1000;
             cycle.cancel();
@@ -392,7 +446,8 @@ void handle(const char *input) {
         size_t len=0; int64_t taken=-1;
         bool photo=camera_ready && camera_gray(gray);
         const uint8_t *jpeg=photo?camera_last_jpeg(len,taken):nullptr;
-        bool ok=notify_configured() && notify_send("\U0001f9ea Teste do Auditor de Medicação: notificações funcionando.",jpeg,len);
+        bool ok=notify_configured() && notify_send("\U0001f9ea <b>Teste do Auditor de Medicação</b>\n"
+            "✅ Notificações funcionando.\n\U0001f4f7 Foto atual da caixa em anexo.",jpeg,len);
         reply(j,ok,ok?(network_connected()?"Teste enfileirado; acompanhe o evento notify":"Teste enfileirado; aguardando Wi-Fi"):
             "Configure o Telegram primeiro");
     }

@@ -50,6 +50,25 @@ Mudança posterior, verificada só em software e com fotos reais do log (ainda n
 |---|---|---|
 | Remédio pequeno não calibra (“cheio e vazio muito parecidos”, diferença 4,7–8,4) | A média da ROI inteira dilui um comprimido que ocupa ~4% da área | Distância às referências pela média das 10% maiores diferenças: nas mesmas fotos, 31,8 contra ruído de 8,9; margem padrão 8. Testes de comprimido pequeno e deslocado |
 
+Mudança de 11/10/2026, gravada e verificada na placa no mesmo dia:
+
+| Sintoma | Causa | Correção |
+|---|---|---|
+| Outra cápsula (diferença 52,5 do “cheio” e 46,1 do “vazio”) e o mesmo comprimido deslocado (70,7 e 44,2) davam inconclusivo | Comparar com uma foto “cheio” faz “presente” significar “este comprimido nesta posição” | Só a referência vazia: compensação de brilho pela mediana, células acima de `max(change, ruído+margin)` e mancha conectada ≥ `min_cells`. Nas fotos reais, vazio e comprimido ficaram com manchas de 0 e 37 células. 429 verificações sintéticas, incluindo comprimido diferente, deslocado, duplo e mudança de luz |
+
+Na placa, depois de calibrar só o vazio (ruído 11–12; limiar por célula 20), as quatro situações foram classificadas corretamente, com resultado e foto entregues no Telegram:
+
+| Situação | Resultado | Maior mancha (mínimo 6) | Diferença (limite 20) | Duração |
+|---|---|---|---|---|
+| Comprimido usado na calibração anterior | PRESENTE | 59 | 45 | 214 ms |
+| Compartimento vazio | VAZIO | 0 | 9 | 203 ms |
+| Outra cápsula | PRESENTE | 50 | 60 | 222 ms |
+| Mesmo comprimido deslocado | PRESENTE | 66 | 47 | 223 ms |
+
+“Conferir comprimido” mediu manchas de 47 a 54 células; uma tentativa com a mão em movimento foi recusada por cena instável, como esperado. São quatro leituras, não um ensaio de acurácia: o protocolo de `VALIDACAO.md` continua pendente.
+
+Ciclo agendado completo na placa (11/10, 22:56, mensagens com formatação HTML): ⏰ no início da janela, 🔔 com foto ao fim da tolerância com o comprimido presente e ✅ “com atraso” 22 s após o 🔔, depois de duas leituras vazias. Uma janela anterior com sombra sobre a caixa (brilho −44 em todas as leituras) terminou em ❌, como projetado.
+
 ### Não verificado (exige a placa)
 
 - Ciclo completo (janela, resultado e aviso) com a caixa calibrada, e operação longa só na fonte.

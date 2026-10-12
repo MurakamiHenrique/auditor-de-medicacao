@@ -17,26 +17,43 @@ struct Roi { int x = 40, y = 24, w = 80, h = 72; };
 struct Settings {
     Roi roi{};
     int hour = 8, minute = 0, window_s = 60, interval_s = 5, confirmations = 2;
-    float max_distance = 18, margin = 8, context_distance = 20, stability = 8;
+    // A cell "changed" when it differs from the empty reference by more than
+    // max(change, calibrated noise + margin) grey levels, after removing the global brightness offset.
+    float change = 20, margin = 8, context_distance = 20, stability = 8;
+    int min_cells = 6; // smallest changed blob (in 32x32 cells) accepted as a dose
     int profile = 0; // 0 unconfirmed, 1 AI Thinker, 2 WROVER KIT
     int late_s = 1800; // extra monitoring after an alert; 0 disables
     bool enabled = true; // daily schedule active
 };
 struct Sample { Feature roi{}; Context context{}; uint16_t context_count = 0; bool quality = false; };
+// Only the empty compartment is a reference: anything that appears in it, of any shape and in any
+// position, is a dose. `noise` is the 99th-percentile cell difference measured while calibrating.
 struct Calibration {
-    Sample present{}, empty{};
-    bool has_present = false, has_empty = false;
+    Sample empty{};
+    float noise = 0;
+    bool has_empty = false;
 };
-struct Result { Observation label = Observation::Unknown; float present = 255, empty = 255, context = 255; };
+// Comparison with the empty reference. `top` is the mean of the 10% largest cell differences
+// (for logs), `blob` the largest 4-connected group of changed cells and `cells` all changed cells.
+struct Change { float offset = 0, top = 255; int blob = 0, cells = 0; };
+struct Result {
+    Observation label = Observation::Unknown;
+    Change change{};
+    float threshold = 255, context = 255;
+};
 bool valid(const Settings &s);
 bool same_roi(const Roi &a, const Roi &b);
 bool extract(const uint8_t *gray, size_t len, const Roi &roi, Sample &out);
 float distance(const uint8_t *a, const uint8_t *b, size_t n); // mean absolute difference
-// Mean of the largest 10% cell differences between two ROI features. A small pill changes few
-// cells strongly; the whole-ROI mean would dilute it below the JPEG noise.
-float roi_distance(const Feature &a, const Feature &b);
 float context_distance(const Sample &a, const Sample &b);
+// Cell differences after subtracting the median signed difference (global brightness shift).
+Change compare(const Feature &v, const Feature &ref, float threshold);
+// 99th percentile of the offset-corrected cell differences: the noise of one frame.
+float noise_level(const Feature &v, const Feature &ref);
+float cell_threshold(const Calibration &c, const Settings &s);
 bool calibrated(const Calibration &c, const Settings &s);
+// Present: a changed blob of at least min_cells. Empty: no blob above min_cells/2 and few changed
+// cells. Anything in between, a scene/light change or a bad image is unknown, never empty.
 Result classify(const Sample &sample, const Calibration &c, const Settings &s);
 
 // Seconds from local time-of-day `now_s` until the daily window starts. Negative when now lies

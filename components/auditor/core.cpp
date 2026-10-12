@@ -29,7 +29,7 @@ bool valid(const Settings &s) {
         s.interval_s>=1 && s.interval_s<=3600 && s.confirmations>=2 && s.confirmations<=10 &&
         s.window_s>=s.interval_s*s.confirmations && s.window_s<=43200 &&
         s.late_s>=0 && s.late_s<=43200 && s.window_s+s.late_s<=DAY_S-3600 &&
-        std::isfinite(s.max_distance) && s.max_distance>=1 && s.max_distance<=80 &&
+        std::isfinite(s.change) && s.change>=5 && s.change<=120 && s.min_cells>=1 && s.min_cells<=N/2 &&
         std::isfinite(s.margin) && s.margin>=1 && s.margin<=40 &&
         std::isfinite(s.context_distance) && s.context_distance>=1 && s.context_distance<=80 &&
         std::isfinite(s.stability) && s.stability>=1 && s.stability<=40 && s.profile>=0 && s.profile<=2;
@@ -40,17 +40,56 @@ float distance(const uint8_t *a, const uint8_t *b, size_t n) {
     for(size_t i=0;i<n;++i) sum+=std::abs(int(a[i])-int(b[i]));
     return float(sum)/float(n);
 }
-float roi_distance(const Feature &a, const Feature &b) {
-    uint16_t histogram[256]{};
-    for(int i=0;i<N;++i) ++histogram[std::abs(int(a[i])-int(b[i]))];
+namespace {
+// Median of the signed differences v-ref: the brightness shift of the whole ROI. A dose covers
+// less than half of the ROI, so it does not move the median.
+int median_offset(const Feature &v, const Feature &ref) {
+    uint16_t histogram[511]{};
+    for(int i=0;i<N;++i) ++histogram[int(v[i])-int(ref[i])+255];
+    int seen=0;
+    for(int d=0;d<511;++d) if((seen+=histogram[d])>=N/2) return d-255;
+    return 0;
+}
+void corrected(const Feature &v, const Feature &ref, int offset, uint8_t *out, uint16_t *histogram) {
+    for(int i=0;i<N;++i) {
+        int d=std::min(255,std::abs(int(v[i])-int(ref[i])-offset));
+        out[i]=uint8_t(d); ++histogram[d];
+    }
+}
+} // namespace
+Change compare(const Feature &v, const Feature &ref, float threshold) {
+    Change c; c.offset=float(median_offset(v,ref));
+    uint8_t diff[N]; uint16_t histogram[256]{};
+    corrected(v,ref,int(c.offset),diff,histogram);
     constexpr int K=N/10;
     int taken=0; uint32_t sum=0;
     for(int d=255;d>=0 && taken<K;--d) {
         int n=std::min(int(histogram[d]),K-taken);
         sum+=uint32_t(n*d); taken+=n;
     }
-    return float(sum)/K;
+    c.top=float(sum)/K;
+    // Largest 4-connected group of changed cells (flood fill with an explicit queue).
+    bool seen[N]{}; uint16_t queue[N];
+    for(int start=0;start<N;++start) {
+        if(seen[start] || diff[start]<=threshold) continue;
+        int head=0, tail=0; queue[tail++]=uint16_t(start); seen[start]=true;
+        while(head<tail) {
+            int i=queue[head++], x=i%SIDE, y=i/SIDE;
+            int next[4]={x>0?i-1:-1, x<SIDE-1?i+1:-1, y>0?i-SIDE:-1, y<SIDE-1?i+SIDE:-1};
+            for(int j:next) if(j>=0 && !seen[j] && diff[j]>threshold) { seen[j]=true; queue[tail++]=uint16_t(j); }
+        }
+        c.cells+=tail; c.blob=std::max(c.blob,tail);
+    }
+    return c;
 }
+float noise_level(const Feature &v, const Feature &ref) {
+    uint8_t diff[N]; uint16_t histogram[256]{};
+    corrected(v,ref,median_offset(v,ref),diff,histogram);
+    int above=0;
+    for(int d=255;d>=0;--d) if((above+=histogram[d])>=N/100) return float(d);
+    return 0;
+}
+float cell_threshold(const Calibration &c, const Settings &s) { return std::max(s.change,c.noise+s.margin); }
 float context_distance(const Sample &a, const Sample &b) {
     if(a.context_count<32 || a.context_count>GUARD || a.context_count!=b.context_count) return 255;
     return distance(a.context.data(),b.context.data(),a.context_count);
@@ -84,21 +123,18 @@ bool extract(const uint8_t *gray, size_t len, const Roi &r, Sample &out) {
     return true;
 }
 bool calibrated(const Calibration &c, const Settings &s) {
-    return valid(s) && c.has_present && c.has_empty && c.present.quality && c.empty.quality &&
-        roi_distance(c.present.roi,c.empty.roi)>2*s.margin &&
-        context_distance(c.present,c.empty)<=s.stability;
+    return valid(s) && c.has_empty && c.empty.quality && std::isfinite(c.noise) && c.noise>=0 && c.noise<=255;
 }
 Result classify(const Sample &v, const Calibration &c, const Settings &s) {
     Result r;
     if(!v.quality || !calibrated(c,s)) return r;
-    r.present=roi_distance(v.roi,c.present.roi);
-    r.empty=roi_distance(v.roi,c.empty.roi);
-    r.context=std::min(context_distance(v,c.present),context_distance(v,c.empty));
-    float separation=roi_distance(c.present.roi,c.empty.roi);
-    float radius=std::min(s.max_distance,separation*0.45f);
-    if(r.context>s.context_distance || std::abs(r.present-r.empty)<s.margin) return r;
-    if(r.present<=radius && r.present<r.empty) r.label=Observation::Present;
-    if(r.empty<=radius && r.empty<r.present) r.label=Observation::Empty;
+    r.threshold=cell_threshold(c,s);
+    r.change=compare(v.roi,c.empty.roi,r.threshold);
+    r.context=context_distance(v,c.empty);
+    // Scene moved or light changed: the reference no longer describes an empty compartment.
+    if(r.context>s.context_distance || std::abs(r.change.offset)>s.context_distance) return r;
+    if(r.change.blob>=s.min_cells) r.label=Observation::Present;
+    else if(r.change.blob<=s.min_cells/2 && r.change.cells<s.min_cells) r.label=Observation::Empty;
     return r;
 }
 bool Cycle::arm(int64_t now, int64_t start, int64_t end, const Settings &s) {

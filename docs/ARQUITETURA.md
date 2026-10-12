@@ -34,15 +34,16 @@ O núcleo em `components/auditor` não depende de FreeRTOS, câmera ou relógio 
 
 A captura usa JPEG QQVGA e um único framebuffer DRAM para não pressupor PSRAM. O primeiro buffer é descartado a cada captura para evitar reutilização de uma imagem anterior. Antes de decodificar, confere-se o tamanho do JPEG, limitando a saída ao buffer RGB. A imagem é convertida em cinza com pesos inteiros. O recorte é reduzido por médias de blocos a 1024 intensidades; uma grade de até 192 pontos acompanha o entorno, excluindo os pontos dentro da ROI e normalizando pela quantidade efetivamente usada.
 
-A comparação com as referências usa a **média das 10% maiores diferenças** entre as 1024 células da ROI, sem depender de treinamento. Um comprimido pequeno muda poucas células com força; a média da ROI inteira o diluiria abaixo do ruído do JPEG (na bancada, um comprimido em ~4% da ROI deu 5,3 pela média e 31,8 pelo top 10%, contra ruído de 2,7 e 8,9). Se o comprimido muda de lugar, ele difere das duas referências e a leitura fica inconclusiva, nunca “vazio”. A estabilidade entre quadros e o entorno continuam usando a média, adequada para movimento e luz globais. Uma classe só é aceita se:
+A classificação usa **uma única referência: o compartimento vazio**. Qualquer coisa que apareça nele, de qualquer formato e em qualquer posição, é dose. Assim, outro comprimido ou o mesmo comprimido deslocado continuam sendo reconhecidos, sem treinamento:
 
-1. As duas referências estão válidas e suficientemente separadas.
-2. A imagem não é predominantemente escura ou saturada.
-3. O entorno permanece próximo de uma referência.
-4. A diferença entre as distâncias às duas classes supera a margem.
-5. A distância à referência escolhida está abaixo do menor valor entre o limiar configurado e 45% da distância entre referências.
+1. Subtrai-se de cada célula a diferença mediana entre a leitura e o vazio (`offset`), que corresponde a uma mudança global de brilho. Uma dose ocupa menos da metade da ROI e não move a mediana.
+2. Uma célula “mudou” quando difere do vazio por mais de `max(change, ruído + margin)` níveis (padrão: 20). O ruído é o percentil 99 das diferenças medido nos cinco quadros da calibração.
+3. Agrupam-se as células mudadas vizinhas (conectividade 4). **Presente:** maior grupo com pelo menos `min_cells` células (padrão 6). **Vazio:** maior grupo de no máximo `min_cells/2` células e menos de `min_cells` células mudadas no total. O intervalo entre os dois é inconclusivo.
+4. A leitura é inconclusiva se a imagem estiver escura ou saturada, se o entorno diferir do vazio mais que `context_distance` ou se o `offset` passar desse limite (cena ou luz mudou).
 
-Cada observação adquire dois quadros e exige estabilidade espacial entre eles. A calibração agrega cinco quadros comparados ao primeiro. A persistência de vazio é avaliada novamente entre observações da agenda. Esses mecanismos reduzem a influência de mãos e movimento, mas não garantem rejeição universal: uma oclusão visualmente semelhante ao vazio pode confundir o método. O teste óptico independente é obrigatório antes de atribuir desempenho.
+Os erros tendem ao lado seguro: uma mão parada ou uma sombra parecem “dose presente” e geram um alerta a mais, nunca uma retirada falsa. Na bancada (11/10/2026), as leituras de vazio ficaram com diferença ~10, e três situações com comprimido (o calibrado, outra cápsula e o calibrado deslocado) ficaram entre 36 e 46. O método anterior, que comparava com uma foto “cheio” e uma “vazio”, classificou as duas últimas como inconclusivas: para ele, “presente” significava “este comprimido nesta posição”. A estabilidade entre quadros usa a média das diferenças, adequada para movimento.
+
+Cada observação adquire dois quadros e exige estabilidade espacial entre eles. A calibração do vazio agrega cinco quadros comparados ao primeiro e mede o ruído; “Conferir comprimido” apenas confirma que uma dose se destaca, sem salvar nada. A persistência de vazio é avaliada novamente entre observações da agenda. Esses mecanismos reduzem a influência de mãos e movimento, mas não garantem rejeição universal: uma oclusão que deixe o compartimento com aparência de vazio pode confundir o método. O teste óptico independente é obrigatório antes de atribuir desempenho.
 
 ## Agenda e resultados
 
@@ -59,9 +60,9 @@ Cada resultado gera um aviso no Telegram. `not_loaded`, `alert` e `fault` levam 
 | Requisito | Implementação / limite |
 |---|---|
 | RF01 | `set`, `wifi`, `telegram`; painel/console USB só para configurar |
-| RF02 | ROI e cinco amostras por referência em NVS |
+| RF02 | ROI, referência vazia (média de cinco quadros) e ruído medido, em NVS |
 | RF03 | Agenda diária automática a partir do SNTP; captura periódica durante a janela |
-| RF04 | `classify`: presente, vazio, inconclusivo; vazio isolado não é resultado de retirada |
+| RF04 | `classify`: presente (mancha ≥ `min_cells`), vazio, inconclusivo; vazio isolado não é resultado de retirada |
 | RF05 | Presença vista na janela, persistência temporal e rejeição de cena; vazio sem presença vira `not_loaded` |
 | RF06 | **Alterado:** aviso remoto pelo Telegram com foto, em vez de alerta sonoro local (decisão do grupo, sem buzzer) |
 | RF07 | **Alterado:** sem botão; estados pela serial e pelo Telegram. Não há reconhecimento que vire retirada |
