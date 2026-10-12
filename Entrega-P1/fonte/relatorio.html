@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relatório Técnico P1 — Auditor Visual de Medicação</title>
+<style>
+@page { size: A4; margin: 18mm 17mm 20mm 17mm;
+  @bottom-right { content: counter(page); font: 9pt Arial, sans-serif; color: #666; }
+  @bottom-left { content: "Auditor Visual de Medicação — Relatório Técnico P1"; font: 9pt Arial, sans-serif; color: #666; } }
+@page :first { @bottom-right { content: none; } @bottom-left { content: none; } }
+:root { --ink:#1b2430; --muted:#5b6672; --line:#c9d1da; --accent:#1f5f8b; --soft:#eef4f9; --ok:#2e7d32; --warn:#b26a00; --bad:#b3261e; }
+* { box-sizing: border-box; }
+body { font: 10.5pt/1.45 "Segoe UI", Arial, sans-serif; color: var(--ink); background:#fff; margin:0; }
+h1 { break-before: auto; font-size: 17pt; color: var(--accent); margin: 0 0 6pt; border-bottom: 2px solid var(--accent); padding-bottom: 3pt; break-after: avoid; }
+h2 { font-size: 12.5pt; color: var(--accent); margin: 14pt 0 5pt; break-after: avoid; }
+h3 { font-size: 11pt; margin: 10pt 0 4pt; break-after: avoid; }
+p { margin: 0 0 6pt; text-align: justify; }
+ul, ol { margin: 0 0 6pt 16pt; padding: 0; }
+li { margin-bottom: 2pt; }
+code { font: 9pt Consolas, monospace; background: #f3f5f7; padding: 0 2px; border-radius: 2px; }
+pre { font: 8.6pt/1.35 Consolas, monospace; background: #f3f5f7; border: 1px solid var(--line); padding: 6pt 8pt; white-space: pre-wrap; break-inside: avoid; margin: 0 0 8pt; }
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 9.3pt; break-inside: auto; }
+th, td { border: 1px solid var(--line); padding: 3pt 5pt; vertical-align: top; text-align: left; }
+th { background: var(--soft); }
+tr { break-inside: avoid; }
+.section { margin-top: 14pt; }
+.cover + .section { break-before: page; margin-top: 0; }
+.cover { height: 255mm; display: flex; flex-direction: column; justify-content: space-between; text-align: center; }
+.cover .inst { font-size: 11pt; line-height: 1.5; }
+.cover .title { font-size: 26pt; font-weight: 700; color: var(--accent); margin-top: 40mm; }
+.cover .sub { font-size: 13pt; color: var(--muted); margin-top: 6pt; }
+.cover table { width: 70%; margin: 0 auto; font-size: 11pt; }
+.cover td { border: none; padding: 2pt 6pt; }
+.toc { columns: 2; font-size: 10pt; }
+.toc div { break-inside: avoid; }
+.tag { display: inline-block; font-size: 8pt; font-weight: 700; padding: 0 4pt; border-radius: 3px; color: #fff; white-space: nowrap; }
+.ok { background: var(--ok); } .part { background: var(--warn); } .pend { background: #6b7280; } .chg { background: var(--accent); }
+.note { background: var(--soft); border-left: 3px solid var(--accent); padding: 5pt 8pt; margin: 4pt 0 8pt; font-size: 9.6pt; break-inside: avoid; }
+figure { margin: 6pt 0 10pt; text-align: center; break-inside: avoid; }
+figure img { max-width: 100%; max-height: 95mm; border: 1px solid var(--line); }
+figcaption { font-size: 9pt; color: var(--muted); margin-top: 3pt; }
+.ph { border: 2px dashed #b9c2cc; color: #7a8590; height: 60mm; display: flex; align-items: center; justify-content: center; font-size: 10pt; background: #fafbfc; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; }
+/* block diagrams */
+.diag { display: flex; align-items: stretch; justify-content: center; gap: 0; margin: 6pt 0 4pt; break-inside: avoid; flex-wrap: nowrap; }
+.blk { border: 1.5px solid var(--accent); border-radius: 5px; padding: 4pt 6pt; background: #fff; font-size: 8.8pt; text-align: center; min-width: 22mm; display: flex; flex-direction: column; justify-content: center; }
+.blk b { display: block; font-size: 9.3pt; }
+.blk.main { background: var(--soft); }
+.blk.ext { border-style: dashed; }
+.arr { align-self: center; color: var(--accent); font-size: 13pt; padding: 0 3pt; }
+.col { display: flex; flex-direction: column; gap: 4pt; justify-content: center; }
+.small { font-size: 9pt; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ===================== CAPA ===================== -->
+<div class="cover">
+  <div class="inst">
+    <b>ESCOLA POLITÉCNICA DA UNIVERSIDADE DE SÃO PAULO</b><br>
+    Departamento de Engenharia de Computação e Sistemas Digitais (PCS)<br>
+    PCS 3858 — Laboratório de Sistemas Embarcados — Turma 3<br>
+    Prof. Dr. Carlos Eduardo Cugnasca
+  </div>
+  <div>
+    <div class="title">Auditor Visual de Medicação</div>
+    <div class="sub">Relatório Técnico — Prova P1<br>Progresso do Projeto Dirigido até 16/10/2026</div>
+  </div>
+  <div>
+    <table>
+      <tr><td style="text-align:right">Gabriel Dias Tambelli</td><td style="text-align:left">NUSP 12551370</td></tr>
+      <tr><td style="text-align:right">Henrique Murakami de Paula</td><td style="text-align:left">NUSP 12551154</td></tr>
+      <tr><td style="text-align:right">Juliana Marcarini Carloni</td><td style="text-align:left">NUSP 12553538</td></tr>
+    </table>
+    <p style="text-align:center; margin-top:14pt" class="small">Repositório: github.com/Tambelli/auditor-de-medicacao (ramo <code>mvp-autonomo-telegram</code>)<br>São Paulo, outubro de 2026</p>
+  </div>
+</div>
+
+<!-- ===================== SUMÁRIO ===================== -->
+<div class="section">
+<h1>Sumário</h1>
+<div class="toc">
+<div>1. Introdução e estado atual</div>
+<div>2. Evolução do escopo</div>
+<div>3. Especificação de requisitos</div>
+<div>4. Arquitetura (produto, hardware e software)</div>
+<div>5. Projeto do hardware</div>
+<div>6. Projeto do software</div>
+<div>7. Protocolos de comunicação</div>
+<div>8. Ferramentas, linguagens e sistema operacional</div>
+<div>9. Interface com o usuário</div>
+<div>10. Protótipo</div>
+<div>11. Verificação e resultados obtidos</div>
+<div>12. Problemas enfrentados</div>
+<div>13. Cronograma previsto e realizado</div>
+<div>14. Divisão de tarefas</div>
+<div>15. Próximos passos até a P2</div>
+<div>16. Referências</div>
+</div>
+
+<h1 style="margin-top:16pt">1. Introdução e estado atual</h1>
+<p>A não adesão ao tratamento medicamentoso é frequente entre idosos e portadores de doenças crônicas, e o esquecimento de doses gera complicações e sobrecarga para familiares e cuidadores. O <b>Auditor Visual de Medicação</b> é um dispositivo passivo, colocado sobre um porta-comprimidos convencional, que verifica com uma câmera se a dose do dia foi retirada do compartimento e avisa o cuidador quando isso não acontece.</p>
+<p>O protótipo não dispensa comprimidos, não identifica o medicamento e não comprova a ingestão: ele observa o estado do compartimento (dose presente ou retirada) dentro de uma janela de horário. Todo o processamento de imagem e a decisão ocorrem no próprio microcontrolador.</p>
+<div class="note"><b>Estado na data da P1.</b> O MVP autônomo está implementado e funcionando na placa: o ESP32-CAM opera ligado apenas a uma fonte, obtém a hora pela Internet (SNTP), executa a verificação diária no horário programado, classifica o compartimento com visão computacional embarcada e avisa o cuidador pelo <b>Telegram</b>, com foto quando é preciso conferir. A configuração (Wi-Fi, Telegram, horário, região de interesse e calibração) é feita por um painel no computador, via USB. Wi-Fi, SNTP, câmera, calibração e o envio de mensagens e fotos ao Telegram foram verificados na placa. Faltam os ensaios quantitativos de acurácia e de estabilidade (seção 15).</div>
+</div>
+
+<!-- ===================== ESCOPO ===================== -->
+<div class="section">
+<h1>2. Evolução do escopo</h1>
+<p>O projeto seguiu a <b>espiral evolucionária</b> prevista na metodologia: a cada ciclo, os requisitos foram revistos à luz do que foi aprendido em bancada. A tabela resume as três versões do escopo.</p>
+<table>
+<tr><th style="width:17%">Aspecto</th><th>Proposta inicial (set/2026)</th><th>Plano consolidado (Tarefa 02, 18/09)</th><th>MVP atual (out/2026)</th></tr>
+<tr><td>Placa</td><td>Seeed XIAO ESP32-S3 Sense</td><td>Waveshare ESP32-S3-ETH + câmera OV2640-V3 avulsa</td><td><b>ESP32-CAM RoboCore com gravador integrado</b> (ESP32 clássico, OV2640 integrada)</td></tr>
+<tr><td>Classificação</td><td>Rede neural convolucional (TinyML)</td><td>Comparação com referências cheio/vazio</td><td><b>Só a referência “vazio”</b>: qualquer objeto no compartimento é dose (seção 6.3)</td></tr>
+<tr><td>Hora</td><td>RTC DS3231 externo</td><td>Ajuste manual pela serial</td><td><b>SNTP pela Internet</b> (ajuste manual mantido para bancada)</td></tr>
+<tr><td>Alerta</td><td>Wi-Fi ao cuidador</td><td>Buzzer + botão; Wi-Fi opcional</td><td><b>Telegram com foto</b>; sem buzzer e sem botão</td></tr>
+<tr><td>Alimentação</td><td>Bateria 18650 + deep sleep</td><td>Fonte 5 V; PC para configurar e registrar</td><td>Fonte USB 5 V; <b>funciona sem computador</b></td></tr>
+<tr><td>Compartimentos</td><td>7 dias × 3 horários</td><td>1 compartimento</td><td>1 compartimento, 1 dose por dia</td></tr>
+</table>
+<p><b>Por que mudou.</b> A CNN exigiria um conjunto de imagens rotuladas que o grupo não possui. A comparação com uma referência calibrada na própria cena é explicável, não precisa de treinamento e cabe na memória do ESP32 clássico. A ESP32-CAM já traz câmera, conector e gravador USB, o que eliminou o risco de compatibilidade elétrica e mecânica da câmera avulsa prevista para a Waveshare. Na revisão de outubro, o grupo decidiu que o produto precisa funcionar só ligado a uma fonte, avisando o cuidador à distância. Um buzzer avisa apenas quem está perto do aparelho, então o canal remoto (Telegram) passou de extensão opcional a requisito principal, e buzzer e botão saíram do escopo. O organizador semanal de 7 compartimentos ficou como extensão.</p>
+</div>
+
+<!-- ===================== REQUISITOS ===================== -->
+<div class="section">
+<h1>3. Especificação de requisitos</h1>
+<p>Os requisitos partem da Tarefa 02 e foram revisados para o MVP autônomo. Situação: <span class="tag ok">VERIFICADO</span> na placa; <span class="tag part">IMPLEMENTADO</span> e testado em software, falta ensaio na placa; <span class="tag pend">PENDENTE</span>. A etiqueta <span class="tag chg">ALTERADO</span> indica requisito revisto na mudança de escopo.</p>
+<h2>3.1 Requisitos funcionais</h2>
+<table>
+<tr><th style="width:8%">ID</th><th>Requisito</th><th style="width:21%">Situação</th></tr>
+<tr><td>RF01</td><td>Configurar horário da dose, tolerância, intervalo de captura, Wi-Fi e Telegram pelo computador (USB); os valores ficam na placa.</td><td><span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RF02</td><td>Calibrar e salvar a região de interesse (ROI) e a referência do compartimento vazio, com medição do ruído; conferir opcionalmente se a dose se destaca.</td><td><span class="tag chg">ALTERADO</span> <span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RF03</td><td>Executar a verificação automaticamente todo dia no horário programado, sem o computador.</td><td><span class="tag chg">ALTERADO</span> <span class="tag part">IMPLEMENTADO</span></td></tr>
+<tr><td>RF04</td><td>Classificar cada leitura como dose presente, vazio ou inconclusiva, para <b>qualquer comprimido em qualquer posição</b> do compartimento.</td><td><span class="tag chg">ALTERADO</span> <span class="tag ok">VERIFICADO</span> (4 situações; ensaio RNF03 pendente)</td></tr>
+<tr><td>RF05</td><td>Confirmar retirada só se a dose foi vista na janela e depois houve leituras vazias consecutivas; vazio sem dose vista vira “não reposta”.</td><td><span class="tag part">IMPLEMENTADO</span></td></tr>
+<tr><td>RF06</td><td>Avisar o cuidador se a dose continuar no compartimento ao fim da tolerância, com foto, e continuar observando para avisar uma retirada atrasada.</td><td><span class="tag chg">ALTERADO</span> (era buzzer) <span class="tag part">IMPLEMENTADO</span></td></tr>
+<tr><td>RF07</td><td>Informar o estado do sistema pela serial (painel) e pelo Telegram.</td><td><span class="tag chg">ALTERADO</span> (sem botão) <span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RF08</td><td>Registrar capturas, classificações, transições e falhas em JSON pela serial; enviar o resultado diário ao Telegram.</td><td><span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RF09</td><td>Detectar falha de câmera, imagem inválida e falta de hora; avisar e nunca declarar retirada nesses casos.</td><td><span class="tag part">IMPLEMENTADO</span></td></tr>
+<tr><td>RF10</td><td>Manter configuração, calibração e credenciais em memória não volátil; após reinício, recuperar a hora pelo SNTP e rearmar sozinho, sem inferir retirada no período desligado.</td><td><span class="tag chg">ALTERADO</span> <span class="tag ok">VERIFICADO</span> (persistência e aviso de boot)</td></tr>
+<tr><td>RF11</td><td>Rearmar automaticamente a verificação do dia seguinte, sem reutilizar o resultado anterior.</td><td><span class="tag chg">ALTERADO</span> <span class="tag part">IMPLEMENTADO</span></td></tr>
+<tr><td>RF12</td><td>Notificar o cuidador pelo Telegram via Wi-Fi; sem rede, a verificação continua e as mensagens aguardam na fila.</td><td><span class="tag chg">ALTERADO</span> (era opcional) <span class="tag ok">VERIFICADO</span></td></tr>
+</table>
+<h2>3.2 Requisitos não funcionais</h2>
+<table>
+<tr><th style="width:8%">ID</th><th>Requisito</th><th style="width:21%">Situação</th></tr>
+<tr><td>RNF01</td><td>Execução embarcada: aquisição, classificação, agenda e decisão no ESP32; o computador serve só para configurar.</td><td><span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RNF02</td><td>Desempenho: até 2 s por leitura (2 quadros + análise); aviso enviado logo após o fim da janela.</td><td><span class="tag ok">VERIFICADO</span> leitura: 168–220 ms</td></tr>
+<tr><td>RNF03</td><td>Qualidade: ≥ 90% de acerto por classe em 30 observações de cada classe fora da calibração; zero retiradas indevidas em 10 oclusões.</td><td><span class="tag pend">PENDENTE</span> (ensaio previsto)</td></tr>
+<tr><td>RNF04</td><td>Reprodutibilidade: suporte, distância, iluminação e objetos documentados.</td><td><span class="tag part">EM ANDAMENTO</span> (suporte fixo em construção)</td></tr>
+<tr><td>RNF05</td><td>A decisão independe da rede; só o envio do aviso depende do Wi-Fi.</td><td><span class="tag chg">ALTERADO</span> <span class="tag part">IMPLEMENTADO</span></td></tr>
+<tr><td>RNF06</td><td>Estabilidade: 20 ciclos consecutivos sem reinício; watchdog de tarefas; memória acompanhada no status.</td><td><span class="tag pend">PENDENTE</span> (watchdog implementado)</td></tr>
+<tr><td>RNF07</td><td>Integração elétrica: fonte de 5 V / 2 A sem reinícios por queda de tensão (brownout).</td><td><span class="tag part">EM ANDAMENTO</span></td></tr>
+<tr><td>RNF08</td><td>Usabilidade: configuração guiada pelo painel; mensagens claras ao cuidador.</td><td><span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RNF09</td><td>Dados: imagens processadas localmente; foto pequena (160 × 120) enviada apenas ao chat do cuidador, só quando é preciso conferir; senhas e token nunca aparecem nos registros.</td><td><span class="tag chg">ALTERADO</span> <span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RNF10</td><td>Manutenibilidade: módulos separados, testes automatizados e integração contínua.</td><td><span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RNF11</td><td>Custo: usar a placa disponível, sem compras eletrônicas adicionais.</td><td><span class="tag ok">VERIFICADO</span></td></tr>
+<tr><td>RNF12</td><td>Portabilidade das ferramentas: painel, compilação e testes no Windows, macOS e Linux.</td><td><span class="tag ok">VERIFICADO</span> (CI no Ubuntu e no macOS)</td></tr>
+</table>
+</div>
+
+<!-- ===================== ARQUITETURA ===================== -->
+<div class="section">
+<h1>4. Arquitetura</h1>
+<h2>4.1 Arquitetura do produto (uso)</h2>
+<p>O ciclo de uso tem duas fases. Na <b>instalação</b>, feita uma única vez com o computador, o cuidador posiciona a câmera sobre o compartimento, informa Wi-Fi e Telegram, escolhe o horário, recorta a região do compartimento e calibra as imagens “vazio” e “presente”. Na <b>operação</b>, o aparelho fica ligado só na fonte. O cuidador repõe a dose a qualquer momento antes do horário; na janela, o aparelho verifica a retirada e envia o resultado ao celular.</p>
+<div class="diag">
+  <div class="blk"><b>Cuidador</b>repõe a dose</div><div class="arr">→</div>
+  <div class="blk"><b>Horário</b>agenda diária (SNTP)</div><div class="arr">→</div>
+  <div class="blk main"><b>Janela</b>leitura a cada 5 s</div><div class="arr">→</div>
+  <div class="blk main"><b>Decisão</b>retirada / não retirada / falha</div><div class="arr">→</div>
+  <div class="blk"><b>Telegram</b>mensagem (+ foto)</div>
+</div>
+<p class="small" style="text-align:center">Figura 1 — Fluxo de uso diário.</p>
+
+<h2>4.2 Arquitetura de hardware</h2>
+<div class="diag">
+  <div class="col">
+    <div class="blk"><b>Fonte USB 5 V / 2 A</b>operação</div>
+    <div class="blk ext"><b>Computador (USB)</b>gravação e configuração</div>
+  </div>
+  <div class="arr">→</div>
+  <div class="blk"><b>CH340</b>USB ↔ UART<br>(gravador integrado)</div>
+  <div class="arr">↔</div>
+  <div class="blk main" style="min-width:52mm"><b>ESP32-D0WD-V3</b>2 núcleos Xtensa LX6 240 MHz<br>520 KB SRAM · PSRAM 8 MB<br>Flash 16 MB · Wi-Fi 2,4 GHz</div>
+  <div class="arr">↔</div>
+  <div class="col">
+    <div class="blk"><b>OV2640</b>DVP 8 bits + SCCB</div>
+    <div class="blk"><b>Antena integrada</b>Wi-Fi → roteador → Internet</div>
+  </div>
+</div>
+<p class="small" style="text-align:center">Figura 2 — Diagrama de blocos do hardware. Não há componentes eletrônicos externos.</p>
+
+<h2>4.3 Arquitetura de software</h2>
+<p>O firmware é escrito em C++17 sobre ESP-IDF 5.4.1 e FreeRTOS. O <b>núcleo</b> (<code>components/auditor</code>) contém a visão, a classificação, a agenda e a máquina de estados, sem depender de hardware. Por isso ele compila e é testado no computador. Os módulos de plataforma ficam em <code>main/</code>.</p>
+<table>
+<tr><th style="width:24%">Módulo</th><th>Responsabilidade</th></tr>
+<tr><td><code>components/auditor</code></td><td>Extração de características (ROI 32×32 e entorno), distâncias, classificação, cálculo da próxima janela e máquina de estados <code>Cycle</code>.</td></tr>
+<tr><td><code>main/app_main.cpp</code></td><td>Laço principal: comandos USB, supervisão (Wi-Fi, hora, câmera), agenda, leituras e transições; monta as mensagens ao cuidador.</td></tr>
+<tr><td><code>main/camera.cpp</code></td><td>Único dono do driver <code>esp32-camera</code>; captura JPEG, converte para cinza e guarda o último JPEG para a foto.</td></tr>
+<tr><td><code>main/network.cpp</code></td><td>Wi-Fi em modo estação com reconexão por espera crescente; SNTP com dois servidores; fuso UTC−3.</td></tr>
+<tr><td><code>main/notify.cpp</code></td><td>Tarefa do Telegram com fila de 8 mensagens, HTTPS e novas tentativas.</td></tr>
+<tr><td><code>main/storage.cpp</code></td><td>Configuração e referências versionadas em NVS (memória não volátil).</td></tr>
+<tr><td><code>main/events.cpp</code></td><td>Eventos JSON na serial, com tempo monotônico e hora civil.</td></tr>
+<tr><td><code>tools/</code> (Python)</td><td>Painel gráfico, console, protocolo, avaliador de ensaios, compilação multiplataforma e testes.</td></tr>
+</table>
+<h3>Tarefas FreeRTOS</h3>
+<table>
+<tr><th>Tarefa</th><th>Prioridade / pilha</th><th>Função</th></tr>
+<tr><td><code>main</code> (app_main)</td><td>padrão · 24 KB</td><td>Laço de 100 ms: comandos, supervisão, agenda e leituras. Monitorada pelo watchdog (30 s).</td></tr>
+<tr><td><code>usb_commands</code></td><td>4 · 4 KB</td><td>Lê bytes da UART0 e entrega comandos (linhas JSON) a uma fila de 8 itens.</td></tr>
+<tr><td>Telegram</td><td>3 · 10 KB</td><td>Consome a fila de avisos e faz o HTTPS. Isola a latência da rede das capturas.</td></tr>
+<tr><td><code>cam_task</code> (driver)</td><td>núcleo 1 · 4 KB</td><td>Recepção DMA dos quadros da câmera.</td></tr>
+<tr><td><code>sys_evt</code>, Wi-Fi, lwIP</td><td>ESP-IDF</td><td>Eventos de rede, pilha TCP/IP e SNTP.</td></tr>
+</table>
+</div>
+
+<!-- ===================== HARDWARE ===================== -->
+<div class="section">
+<h1>5. Projeto do hardware</h1>
+<p>O hardware é uma plataforma comercial (COTS). O trabalho de projeto foi identificar a placa, descobrir a pinagem real da câmera, dimensionar a alimentação e definir a montagem mecânica.</p>
+<h2>5.1 Placa utilizada (conferida em bancada em 02/10/2026)</h2>
+<table>
+<tr><th style="width:30%">Item</th><th>Observado</th></tr>
+<tr><td>Microcontrolador</td><td>ESP32-D0WD-V3, revisão 3.0, cristal de 40 MHz (lido com o esptool)</td></tr>
+<tr><td>Conversor USB</td><td>WCH CH340 (VID:PID 1A86:7523), com circuito automático de reset/boot</td></tr>
+<tr><td>PSRAM</td><td>8 MB detectados; o ESP32 mapeia 4 MB, que viram heap (~4,3 MB livres no boot)</td></tr>
+<tr><td>Flash</td><td>16 MB detectados (a página do fabricante informa 4 MB); o firmware usa 4 MB</td></tr>
+<tr><td>Câmera</td><td>OV2640 (PID 0x26), detectada somente com a pinagem “WROVER KIT” (perfil 2)</td></tr>
+</table>
+<h2>5.2 Pinagem da câmera</h2>
+<p>Apesar do nome comercial ESP32-CAM, a placa da RoboCore não segue a pinagem AI-Thinker, que é a mais comum: o clock da câmera (XCLK) está no GPIO21, e não no GPIO0. Como não havia esquema elétrico, o firmware oferece os dois perfis e a escolha fica salva na NVS, sem recompilar. Na placa, o perfil 1 falhou na sonda SCCB (<code>ESP_ERR_NOT_FOUND</code>) e o perfil 2 funcionou.</p>
+<table>
+<tr><th>Sinal</th><th>Perfil 1 (AI-Thinker)</th><th>Perfil 2 (WROVER KIT) — <b>usado</b></th></tr>
+<tr><td>PWDN / RESET</td><td>32 / —</td><td>— / —</td></tr>
+<tr><td>XCLK</td><td>0</td><td><b>21</b></td></tr>
+<tr><td>SCCB SDA / SCL</td><td>26 / 27</td><td>26 / 27</td></tr>
+<tr><td>D0–D3</td><td>5, 18, 19, 21</td><td>4, 5, 18, 19</td></tr>
+<tr><td>D4–D7</td><td>36, 39, 34, 35</td><td>36, 39, 34, 35</td></tr>
+<tr><td>VSYNC / HREF / PCLK</td><td>25 / 23 / 22</td><td>25 / 23 / 22</td></tr>
+</table>
+<h2>5.3 Alimentação e montagem</h2>
+<ul>
+<li><b>Fonte:</b> USB 5 V de pelo menos 2 A, com cabo curto. Wi-Fi e câmera juntos geram picos de corrente; fontes fracas causam reinício por queda de tensão (<i>brownout</i>). O motivo de cada reinício é informado na mensagem “Auditor ligado”.</li>
+<li><b>Sem eletrônica externa:</b> o MVP não usa buzzer, LED, RTC nem cartão SD. Isso eliminou o driver do buzzer, o tratamento do botão e o orçamento de componentes da Tarefa 02.</li>
+<li><b>Mecânica:</b> a câmera fica fixa acima do compartimento, enquadrando também parte do entorno, que serve para detectar mudança de cena. O suporte precisa impedir que caixa e câmera se desloquem: um deslocamento de poucos pixels invalida as referências.</li>
+<li><b>Iluminação:</b> ambiente constante. O LED de flash da placa não é usado (decisão do grupo).</li>
+<li><b>Rede:</b> Wi-Fi de 2,4 GHz com WPA2; a placa deve ficar onde o sinal seja bom (RSSI melhor que −75 dBm, informado no status).</li>
+</ul>
+</div>
+
+<!-- ===================== SOFTWARE ===================== -->
+<div class="section">
+<h1>6. Projeto do software</h1>
+<h2>6.1 Inicialização</h2>
+<p>A ordem de boot foi definida pelos problemas encontrados em bancada: NVS, UART e <b>câmera antes da rede</b> (a câmera precisa de blocos contíguos de memória interna, que o Wi-Fi fragmenta), depois a tarefa do Telegram, o Wi-Fi e o SNTP. Por fim vêm o evento <code>boot</code> (versão, motivo do reset, PSRAM) e o watchdog. Quando a hora chega pelo SNTP, o aparelho envia ao cuidador a mensagem “Auditor ligado”, com o motivo do reinício, o que falta configurar e a próxima verificação.</p>
+
+<h2>6.2 Máquina de estados do ciclo diário</h2>
+<svg viewBox="0 0 700 250" width="100%" style="max-height:88mm" font-family="Segoe UI, Arial" font-size="12">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f5f8b"/></marker></defs>
+  <g stroke="#1f5f8b" stroke-width="1.6" fill="#fff">
+    <rect x="10" y="100" width="80" height="34" rx="6"/>
+    <rect x="130" y="100" width="90" height="34" rx="6"/>
+    <rect x="270" y="100" width="110" height="34" rx="6" fill="#eef4f9"/>
+    <rect x="460" y="20" width="110" height="34" rx="6" fill="#e6f2e7"/>
+    <rect x="460" y="70" width="110" height="34" rx="6" fill="#fff4e0"/>
+    <rect x="460" y="130" width="110" height="34" rx="6" fill="#fde8e6"/>
+    <rect x="460" y="195" width="110" height="34" rx="6" fill="#eceff1"/>
+    <rect x="600" y="130" width="92" height="34" rx="6" fill="#e6f2e7"/>
+  </g>
+  <g text-anchor="middle" fill="#1b2430">
+    <text x="50" y="122">Idle</text><text x="175" y="122">Armed</text><text x="325" y="122">Monitoring</text>
+    <text x="515" y="42">Removed ✅</text><text x="515" y="92">NotLoaded ⚠️</text><text x="515" y="152">Alert 🔔</text>
+    <text x="515" y="217">Fault ❌</text><text x="646" y="146">Late</text><text x="646" y="159">Removed ✅</text>
+  </g>
+  <g stroke="#1f5f8b" stroke-width="1.4" fill="none" marker-end="url(#a)">
+    <path d="M90,117 L128,117"/><path d="M220,117 L268,117"/>
+    <path d="M380,110 L458,40"/><path d="M380,114 L458,88"/><path d="M380,122 L458,146"/><path d="M380,128 L458,210"/>
+    <path d="M570,147 L598,147"/>
+  </g>
+  <g font-size="10.5" fill="#5b6672">
+    <text x="92" y="95">hora válida +</text><text x="92" y="107">calibrado</text>
+    <text x="228" y="95">início da</text><text x="228" y="107">janela</text>
+    <text x="388" y="44">presente visto →</text><text x="388" y="56">2 vazios seguidos</text>
+    <text x="392" y="80">só vazios</text>
+    <text x="385" y="150">fim: ainda presente</text>
+    <text x="385" y="200">fim: sem leitura</text><text x="385" y="212">válida recente</text>
+    <text x="574" y="125">retirada em late_s</text>
+  </g>
+  <text x="10" y="245" font-size="10.5" fill="#5b6672">Estados finais geram aviso no Telegram; ao terminar, a agenda arma a janela do dia seguinte.</text>
+</svg>
+<p class="small" style="text-align:center">Figura 3 — Máquina de estados <code>Cycle</code>. NotLoaded, Alert e Fault enviam foto.</p>
+<ul>
+<li>A presença da dose é verificada <b>dentro da janela</b>, não ao armar. Assim o cuidador pode repor a dose a qualquer hora antes do horário.</li>
+<li><b>Removed</b> exige que a dose tenha sido vista e, depois, <code>confirmations</code> leituras vazias consecutivas (padrão 2). Se o intervalo entre leituras passar de <code>interval_s</code> + 2 s, a sequência recomeça.</li>
+<li>No fim da janela, só uma leitura “presente” recente leva a <b>Alert</b>. Qualquer falta de evidência leva a <b>Fault</b>: a ausência de dado nunca vira “retirada”.</li>
+<li>Em <b>Alert</b>, a observação continua por <code>late_s</code> (padrão 30 min). Uma retirada nesse período gera <b>LateRemoved</b>.</li>
+<li><b>Agenda:</b> <code>next_window_offset</code> converte o horário civil na próxima janela, inclusive na virada da meia-noite. Se o aparelho reinicia com a janela de hoje aberta, ela é retomada com o tempo restante. Uma janela concluída nunca se repete no mesmo dia.</li>
+</ul>
+
+<h2>6.3 Visão computacional embarcada</h2>
+<ol>
+<li><b>Captura:</b> JPEG QQVGA (160 × 120), qualidade 6. O primeiro quadro é descartado para não reaproveitar imagem antiga. Cada leitura usa dois quadros.</li>
+<li><b>Pré-processamento:</b> o JPEG é decodificado para RGB888 e convertido para tons de cinza com pesos inteiros.</li>
+<li><b>Características:</b> a ROI é reduzida por médias de blocos a 32 × 32 = 1024 células. Até 192 pontos do entorno (fora da ROI), cada um a média de 5 × 5 pixels, monitoram mudanças de cena e de iluminação.</li>
+<li><b>Estabilidade:</b> os dois quadros devem diferir no máximo 8 níveis (média absoluta), na ROI e no entorno. Caso contrário, a leitura é inconclusiva (mão ou movimento na cena).</li>
+<li><b>Referência única:</b> só o compartimento <b>vazio</b> é calibrado (média de 5 quadros). Qualquer objeto que apareça nele, de qualquer formato e em qualquer posição, é tratado como dose: é uma <b>subtração de fundo</b>, adequada porque a câmera é fixa.</li>
+<li><b>Compensação de luz:</b> subtrai-se de todas as células a diferença mediana entre a leitura e o vazio. Uma mudança global de brilho desaparece; uma dose ocupa menos da metade da ROI e não altera a mediana.</li>
+<li><b>Células alteradas:</b> uma célula mudou se difere do vazio mais que max(20; ruído + 8) níveis. O ruído é o percentil 99 das diferenças medido nos quadros da calibração.</li>
+<li><b>Mancha:</b> as células alteradas vizinhas são agrupadas (preenchimento de região, conectividade 4). <b>Presente:</b> maior mancha ≥ 6 células. <b>Vazio:</b> maior mancha ≤ 3 e menos de 6 células alteradas. Entre os dois: inconclusivo.</li>
+<li><b>Rejeição:</b> imagem escura ou saturada, entorno diferente do vazio (&gt; 20 níveis) ou brilho global alterado além de 20 níveis tornam a leitura inconclusiva, nunca “vazio”.</li>
+</ol>
+<figure><img src="figuras/deteccao.png" alt="Detecção" style="max-height:52mm"><figcaption>Figura 4 — Imagens reais de 11/10: referência vazia, compartimento com comprimido e células alteradas (vermelho), formando uma mancha de 37 células.</figcaption></figure>
+<p><b>Três ciclos da espiral na visão.</b> (1) A primeira versão comparava com uma foto “cheio” e uma “vazio” pela média das diferenças, e um comprimido pequeno (~4% da ROI) ficava abaixo do ruído do JPEG. (2) A média das 10% maiores diferenças resolveu o comprimido pequeno (31,8 contra 8,9 de ruído). (3) Em 11/10, o teste em bancada com quatro situações mostrou o limite do método: <b>outra cápsula e o mesmo comprimido deslocado davam inconclusivo</b>, porque “presente” significava “este comprimido nesta posição”. Mas a distância ao vazio separava bem: ~10 no vazio contra 36–46 nos três casos com comprimido. Daí o critério atual, que só pergunta “o compartimento está diferente de vazio?”. Nas imagens reais, o vazio gera mancha de 0 células e o comprimido, de 37.</p>
+<p><b>Por que não treinar uma rede neural.</b> Com câmera fixa, “vazio ou ocupado” é resolvido pela subtração de fundo. Uma CNN exigiria centenas de imagens rotuladas, seria mais lenta no ESP32 clássico e mais difícil de explicar. Ela fica como extensão se os ensaios de acurácia mostrarem falhas por iluminação que a compensação não resolva.</p>
+<p><b>Calibração:</b> “Calibrar VAZIO” coleta cinco quadros comparados ao primeiro e é recusada, com mensagem específica, se a cena mudar ou a imagem estiver escura/saturada. “Conferir comprimido” é opcional: informa se uma dose se destaca (tamanho da mancha e diferença), sem salvar nada.</p>
+
+<h2>6.4 Notificação ao cuidador</h2>
+<p>A aplicação nunca espera pela rede: ela coloca o aviso numa fila de 8 itens, que a tarefa do Telegram consome. Cada mensagem tem até 20 tentativas, com espera crescente de até 300 s. Respostas 4xx (token ou chat errado) não são repetidas, exceto 429 (limite de envio). Sem Wi-Fi, a verificação continua e as mensagens aguardam a reconexão. A foto anexada é o último JPEG analisado, e só é enviada se for da janela atual.</p>
+
+<h2>6.5 Persistência e robustez</h2>
+<ul>
+<li><b>NVS:</b> um único bloco versionado com configuração, referência vazia e ruído, gravado só ao configurar ou calibrar, nunca a cada quadro (desgaste da flash). As credenciais de Wi-Fi e Telegram ficam em namespaces separados e nunca são ecoadas.</li>
+<li><b>Watchdog de tarefas</b> de 30 s, com reinício em caso de travamento do laço principal.</li>
+<li><b>Recuperação:</b> câmera reinicializada a cada 60 s quando falha (fora da janela); Wi-Fi com reconexão por espera crescente; após reset, a hora volta pelo SNTP e a agenda rearma sozinha.</li>
+<li><b>Memória:</b> buffers RGB (57,6 KB) e cópia do JPEG (16 KB) na PSRAM; mbedTLS aloca na PSRAM. Restam ~95 KB de RAM interna livre com Wi-Fi conectado.</li>
+</ul>
+</div>
+
+<!-- ===================== PROTOCOLOS ===================== -->
+<div class="section">
+<h1>7. Protocolos de comunicação</h1>
+<table>
+<tr><th style="width:22%">Enlace</th><th style="width:26%">Protocolo</th><th>Uso no projeto</th></tr>
+<tr><td>Computador ↔ ESP32</td><td>USB → UART0 (CH340), 115200 8N1; <b>JSON Lines</b> (protocolo próprio, até 511 B por comando)</td><td>Configuração, calibração, comandos de teste e eventos de registro. Detalhado abaixo.</td></tr>
+<tr><td>ESP32 ↔ câmera</td><td><b>SCCB</b> (compatível com I²C) + <b>DVP</b> paralelo de 8 bits com DMA (I2S)</td><td>SCCB configura o sensor OV2640 (formato, qualidade JPEG); o DVP transfere os quadros.</td></tr>
+<tr><td>ESP32 ↔ roteador</td><td><b>IEEE 802.11 b/g/n</b> 2,4 GHz, WPA2-PSK; DHCP</td><td>Acesso à Internet em modo estação.</td></tr>
+<tr><td>Hora</td><td><b>SNTP</b> (UDP 123)</td><td>Servidores <code>a.st1.ntp.br</code> e <code>pool.ntp.org</code>; fuso fixo UTC−3.</td></tr>
+<tr><td>ESP32 → Telegram</td><td><b>HTTPS</b> (HTTP/1.1 sobre TLS, mbedTLS e pacote de certificados raiz)</td><td>Bot API: <code>sendMessage</code> (corpo JSON) e <code>sendPhoto</code> (<code>multipart/form-data</code> com o JPEG).</td></tr>
+</table>
+<h2>7.1 Protocolo USB (JSON por linha)</h2>
+<p>Cada comando é um objeto JSON terminado por LF, com <code>id</code> opcional. A placa responde com <code>event=reply</code> (repete o <code>id</code>, com <code>ok</code> e <code>message</code>) e emite eventos assíncronos com <code>ms</code> (tempo monotônico) e <code>epoch</code> (UTC, zero sem hora). Durante uma verificação, só <code>status</code> e <code>cancel</code> são aceitos. Exemplos:</p>
+<pre>→ {"cmd":"set","hour":8,"minute":0,"window_s":1800,"interval_s":5,"late_s":1800,"id":7}
+← {"event":"reply","ms":51234,"epoch":1792152000,"id":7,"ok":true,"message":"..."}
+→ {"cmd":"calibrate","label":"empty"}
+→ {"cmd":"sample","notify":true}
+← {"event":"observation","label":"present","captured":true,"stable":true,
+   "distance_present":3.1,"distance_empty":29.4,"distance_context":2.8,"duration_ms":172,...}
+← {"event":"transition","from":"monitoring","state":"removed","demo":false,...}
+← {"event":"status","state":"armed","wifi":"connected","rssi":-41,"heap":...}</pre>
+<p>Comandos: <code>status</code>, <code>set</code>, <code>calibrate</code>, <code>clear_calibration</code>, <code>snapshot</code> (imagem em base64), <code>sample</code>, <code>arm</code> (com <code>delay_s</code> para demonstração), <code>cancel</code>, <code>time</code>, <code>wifi</code>, <code>telegram</code> e <code>test_notify</code>. O painel mascara senha e token no registro, e o firmware nunca os devolve.</p>
+<h2>7.2 Telegram Bot API</h2>
+<p>O cuidador cria um bot no BotFather, que fornece o <i>token</i>, e envia uma mensagem ao bot. O <code>chat_id</code> é obtido em <code>getUpdates</code>. Pode ser o chat individual do cuidador ou um grupo, com identificador negativo, para avisar vários familiares. A placa faz requisições POST a <code>https://api.telegram.org/bot&lt;token&gt;/sendMessage</code> e <code>…/sendPhoto</code>. O certificado do servidor é validado com o pacote de CAs do ESP-IDF.</p>
+</div>
+
+<!-- ===================== FERRAMENTAS ===================== -->
+<div class="section">
+<h1>8. Ferramentas, linguagens e sistema operacional</h1>
+<table>
+<tr><th style="width:28%">Categoria</th><th>Escolha</th></tr>
+<tr><td>Linguagens</td><td>C++17 (firmware e núcleo), Python 3 (painel, console e scripts), CMake</td></tr>
+<tr><td>Sistema operacional embarcado</td><td><b>FreeRTOS</b> (incluso no ESP-IDF): tarefas, filas, semáforos, timers e watchdog</td></tr>
+<tr><td>Framework</td><td><b>ESP-IDF 5.4.1</b>: esp_wifi, esp_netif, lwIP, esp_netif_sntp, esp_http_client, mbedTLS, NVS, esp_psram</td></tr>
+<tr><td>Bibliotecas</td><td><code>esp32-camera</code> 2.0.16 (Espressif), cJSON; no PC: pyserial, Tkinter</td></tr>
+<tr><td>Compilação e gravação</td><td>PlatformIO Core 6.1.18 (plataforma espressif32 6.11.0), esptool; script <code>tools/build.py</code> para Windows, macOS e Linux</td></tr>
+<tr><td>Testes</td><td>Testes nativos do núcleo C++ (311 verificações, <code>-Wall -Wextra -Werror</code>), compilados com Zig/clang no Windows, clang no macOS e g++ no Linux; 6 testes Python (unittest)</td></tr>
+<tr><td>Integração contínua</td><td>GitHub Actions: compilação do firmware e testes no Ubuntu e no macOS a cada envio</td></tr>
+<tr><td>Versionamento</td><td>Git + GitHub (fork e pull request para integrar ao repositório do grupo)</td></tr>
+<tr><td>Sistemas operacionais de desenvolvimento</td><td>Windows 11 e macOS</td></tr>
+<tr><td>Apoio</td><td>VS Code; Telegram (BotFather); análise dos registros JSONL em Python</td></tr>
+</table>
+<p>A IA embarcada da proposta (TinyML/CNN) foi substituída por visão clássica: não havia conjunto de dados rotulado, e a subtração de fundo com uma referência calibrada na própria cena é explicável e verificável em testes sintéticos.</p>
+</div>
+
+<!-- ===================== INTERFACE ===================== -->
+<div class="section">
+<h1>9. Interface com o usuário</h1>
+<h2>9.1 Painel de configuração (computador)</h2>
+<p>Aplicativo Tkinter (<code>tools/panel.py</code>) que detecta a porta da placa automaticamente. Ele mostra a imagem da câmera ampliada, o estado do sistema e o registro de eventos, organizado em três abas:</p>
+<ul>
+<li><b>Câmera:</b> perfil de pinagem, captura de imagem, recorte da ROI com o mouse, “Calibrar VAZIO”, “Conferir comprimido” (opcional) e “Testar leitura”, que classifica a cena e envia o resultado com a foto ao Telegram.</li>
+<li><b>Agenda:</b> horário, tolerância, intervalo entre leituras, observação após o alerta, ativação da verificação diária, “Teste: verificar em 10 s” e ajuste manual da hora.</li>
+<li><b>Wi-Fi e Telegram:</b> rede, senha, token do bot, <code>chat_id</code> e “Enviar mensagem de teste”.</li>
+</ul>
+<figure><img src="fotos/painel.png" alt="Painel, aba Câmera" style="max-height:120mm"><figcaption>Figura 5 — Painel logo após o ciclo agendado das 22:56 de 11/10: imagem da câmera com a ROI (amarelo), aba Câmera e log com uma leitura a cada ~5 s, o 🔔, a retirada (duas leituras VAZIO) e a confirmação.</figcaption></figure>
+<h2>9.2 Mensagens ao cuidador (Telegram)</h2>
+<table>
+<tr><th style="width:22%">Situação</th><th>Mensagem enviada</th><th style="width:9%">Foto</th></tr>
+<tr><td>Início da janela</td><td>⏰ <b>Hora da dose: 08:00</b><br>📷 Verificando o compartimento por até 30 min.</td><td>não</td></tr>
+<tr><td>Dose retirada</td><td>✅ <b>Dose tomada</b><br>💊 Dose das 08:00<br>🕒 Retirada confirmada às 08:03</td><td>não</td></tr>
+<tr><td>Retirada atrasada</td><td>✅ <b>Dose tomada com atraso</b><br>💊 Dose das 08:00<br>🕒 Retirada confirmada às 08:41</td><td>não</td></tr>
+<tr><td>Não retirada</td><td>🔔 <b>Dose NÃO tomada</b><br>💊 Dose das 08:00<br>⏰ Ainda no compartimento às 08:30<br>👀 Continuo observando por mais 30 min e aviso se ela for retirada.</td><td>sim</td></tr>
+<tr><td>Não reposta</td><td>⚠️ <b>Compartimento vazio no horário</b><br>💊 Dose das 08:00<br>📭 A dose não foi reposta ou foi retirada antes da hora. Confira a foto.</td><td>sim</td></tr>
+<tr><td>Falha</td><td>❌ <b>Não foi possível verificar</b><br>💊 Dose das 08:00<br>📷 Sem imagem confiável (mão na frente, luz ou caixa fora do lugar). Confira a foto.</td><td>sim</td></tr>
+<tr><td>Ligado / reiniciado</td><td>🔌 <b>Auditor ligado</b><br>🕒 Relógio: seg 12/10, 07:58 (internet)<br>🔁 Motivo: energia ligada<br>✅ Pronto. Próxima verificação: <b>seg 12/10 às 08:00</b></td><td>não</td></tr>
+<tr><td>Leitura de teste</td><td>🔎 <b>Leitura de teste</b> · 14:05<br>💊 <b>Dose PRESENTE</b> no compartimento<br><i>Mancha de 59 células (mínimo 6) · diferença 45 (limite 20)</i></td><td>sim</td></tr>
+</table>
+<figure><img src="fotos/telegram.png" alt="Telegram" onerror="this.outerHTML='<div class=ph>[ Inserir captura de tela das mensagens no celular: Entrega-P1/fonte/fotos/telegram.png ]</div>'"><figcaption>Figura 6 — Quadro do vídeo do ciclo agendado (11/10, 22:56): ⏰ início da janela, 🔔 com a foto do comprimido no compartimento e ✅ após a retirada; ao lado, a caixa já vazia.</figcaption></figure>
+</div>
+
+<!-- ===================== PROTÓTIPO ===================== -->
+<div class="section">
+<h1>10. Protótipo</h1>
+<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6pt; align-items:end">
+<figure style="margin:0"><img src="fotos/prototipo.jpg" alt="Montagem" style="max-height:78mm"><figcaption>(a) Montagem</figcaption></figure>
+<figure style="margin:0"><img src="fotos/placa.jpg" alt="Placa" style="max-height:78mm"><figcaption>(b) ESP32-CAM no suporte</figcaption></figure>
+<figure style="margin:0"><img src="fotos/caixa.jpg" alt="Caixa" style="max-height:78mm"><figcaption>(c) Compartimento visto de cima</figcaption></figure>
+</div>
+<p class="small" style="text-align:center">Figura 7 — Protótipo: (a) a ESP32-CAM presa a um suporte articulado, com a câmera voltada para baixo sobre o porta-comprimidos, ligada pela USB; (b) a placa com o LED de energia aceso; (c) a caixa sob a câmera. Os comprimidos de teste aparecem em (a).</p>
+<figure><img src="figuras/newmed.png" alt="Vazio e presente" style="max-height:60mm" onerror="this.outerHTML='<div class=ph>[ artifacts/newmed.png ]</div>'"><figcaption>Figura 8 — Imagens da câmera (160 × 120, cinza) de 02/10: compartimento vazio e com um comprimido pequeno, com a ROI marcada.</figcaption></figure>
+<figure><img src="figuras/series.png" alt="Série de capturas" style="max-height:42mm" onerror="this.outerHTML='<div class=ph>[ artifacts/series.png ]</div>'"><figcaption>Figura 9 — Capturas de bancada durante o ajuste do enquadramento: cápsula grande (esquerda) e caixa com a tampa aberta (direita).</figcaption></figure>
+<h2>Vídeos (anexos em .mp4)</h2>
+<table>
+<tr><th style="width:30%">Arquivo</th><th>Conteúdo</th></tr>
+<tr><td><code>video1_ciclo_agendado.mp4</code></td><td>Verificação disparada pela agenda no horário programado: ⏰ “Hora da dose” no celular; o comprimido continua na caixa e chega 🔔 “Dose NÃO tomada” com foto; o comprimido é retirado e chega ✅ “Dose tomada com atraso” (11/10, 22:56).</td></tr>
+</table>
+</div>
+
+<!-- ===================== VERIFICAÇÃO ===================== -->
+<div class="section">
+<h1>11. Verificação e resultados obtidos</h1>
+<h2>11.1 Software</h2>
+<table>
+<tr><th>Verificação</th><th>Resultado</th></tr>
+<tr><td>Núcleo C++ compilado nativamente com <code>-Wall -Wextra -Werror</code></td><td><b>429 verificações aprovadas</b>: limites da ROI, referência vazia, comprimido pequeno, diferente, deslocado e duplo, migalha, compensação de luz, ruído, oclusão simulada, persistência temporal, próxima janela (virada de meia-noite, retomada após reinício), not_loaded, alerta com retirada tardia, captura atrasada</td></tr>
+<tr><td>Testes Python (protocolo, avaliador, mascaramento de segredos)</td><td>6 testes aprovados</td></tr>
+<tr><td>Compilação ESP32 (ESP-IDF 5.4.1)</td><td>SUCCESS. RAM estática 74.132 B de 327.680 (22,6%); flash 1.191.207 B de 4.063.232 (29,3%)</td></tr>
+<tr><td>Integração contínua (GitHub Actions)</td><td>Firmware, testes no Ubuntu e testes no macOS aprovados</td></tr>
+</table>
+<p class="small">Os testes sintéticos verificam a lógica, não a acurácia óptica com medicamentos reais.</p>
+<h2>11.2 Na placa (02/10 a 09/10/2026)</h2>
+<ul>
+<li>Gravação pela USB e boot da versão 2.0.0; PSRAM de 8 MB detectada; heap de ~4,3 MB após o boot.</li>
+<li>Câmera OV2640 no perfil 2; leitura completa (2 quadros + análise) em <b>168–220 ms</b>, bem abaixo da meta de 2 s (RNF02); 10 de 10 capturas sem aviso do driver.</li>
+<li>Wi-Fi (2,4 GHz, WPA2) conectado com RSSI de −19 a −38 dBm; hora obtida por SNTP.</li>
+<li><b>Ciclo agendado completo (11/10, 22:56)</b>: a agenda disparou no horário programado (⏰ às 22:56:01); o comprimido continuava presente no fim da tolerância (🔔 com foto às 22:56:10); após a retirada, duas leituras vazias confirmaram ✅ “Dose tomada com atraso” às 22:56:32. Antes, uma janela com sombra sobre a caixa (brilho −44) terminou em ❌, como projetado: mudança forte de luz é inconclusiva, nunca “vazio”.</li>
+<li>Telegram: mensagem de teste com foto entregue com HTTP 200 na primeira tentativa, cerca de 5 s após o comando; “Testar leitura” entregue com foto e distâncias.</li>
+<li>Calibração com cápsula branca grande aceita; ruído entre quadros parados de ~2,8 (ROI) e ~3,3 (entorno), contra limite 8; 12 de 12 leituras estáveis.</li>
+<li>Métrica top 10% gravada em 11/10 e calibrada com cheio/vazio: o comprimido calibrado foi lido como PRESENTE (diferença 12,7 do cheio e 36,2 do vazio) e o vazio como VAZIO (10,3 do vazio). Outra cápsula e o comprimido deslocado deram INCONCLUSIVA, o que motivou o critério atual (seção 6.3). O novo critério foi gravado e repetido na placa no mesmo dia, com as quatro situações corretas (tabela abaixo).</li>
+</ul>
+<table>
+<tr><th>Situação (11/10, referência só vazia)</th><th>Resultado</th><th>Maior mancha (mín. 6)</th><th>Diferença (limite 20)</th><th>Duração</th></tr>
+<tr><td>Comprimido usado na calibração anterior</td><td><b>PRESENTE</b></td><td>59</td><td>45</td><td>214 ms</td></tr>
+<tr><td>Compartimento vazio</td><td><b>VAZIO</b></td><td>0</td><td>9</td><td>203 ms</td></tr>
+<tr><td>Outra cápsula</td><td><b>PRESENTE</b></td><td>50</td><td>60</td><td>222 ms</td></tr>
+<tr><td>Mesmo comprimido deslocado</td><td><b>PRESENTE</b></td><td>66</td><td>47</td><td>223 ms</td></tr>
+</table>
+<p class="small">Ruído medido na calibração: 11–12 níveis. A folga é grande (mancha mínima 6 contra 50–66; vazio com 0), mas são quatro leituras: o ensaio de acurácia (RNF03) continua previsto.</p>
+<ul>
+</ul>
+</div>
+
+<!-- ===================== PROBLEMAS ===================== -->
+<div class="section">
+<h1>12. Problemas enfrentados</h1>
+<table>
+<tr><th style="width:26%">Problema</th><th style="width:34%">Causa encontrada</th><th>Solução</th></tr>
+<tr><td>Câmera não inicializava (<code>ESP_ERR_NOT_FOUND</code>)</td><td>A placa RoboCore usa a pinagem WROVER KIT (XCLK no GPIO21), e não a AI-Thinker</td><td>Perfis de pinagem selecionáveis e salvos na NVS; perfil 2 confirmado</td></tr>
+<tr><td>Reinício em loop ao salvar o Wi-Fi (<code>stack overflow in task sys_evt / cam_task</code>)</td><td>Pilhas padrão (2304/2048 B) insuficientes com Wi-Fi e câmera juntos</td><td>Pilhas de 4096 B; tarefa da câmera fixada no núcleo 1</td></tr>
+<tr><td>Telegram falhava (<code>mbedtls_ssl_setup -0x7F00</code>)</td><td>O TLS só alocava RAM interna, que estava em ~31 KB livres</td><td><code>CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC</code> (usa PSRAM) e buffers de imagem movidos para a PSRAM</td></tr>
+<tr><td>Quadros perdidos (<code>FB-OVF</code>, <code>NO-EOI</code>)</td><td>Buffer JPEG automático de 3840 B pequeno para QQVGA</td><td>Buffer JPEG fixo de 16 KB</td></tr>
+<tr><td>Calibração recusada por “cena instável” com tudo parado</td><td>Artefatos do JPEG (qualidade 12) geravam ruído de 4–5 níveis entre quadros; entorno medido em pixels isolados</td><td>JPEG qualidade 6 e entorno pela média 5×5: ruído caiu para ~2,8/3,3; mensagens de erro com os valores medidos</td></tr>
+<tr><td>Calibração falhava após mexer na câmera</td><td>Câmera e caixa sem fixação; ROI grande incluindo partes móveis</td><td>Suporte fixo e ROI justa no compartimento</td></tr>
+<tr><td>Remédio pequeno não calibrava (“cheio e vazio muito parecidos”)</td><td>A média da ROI inteira diluía um comprimido que ocupa ~4% da área</td><td>Distância pela média das 10% maiores diferenças; margem 8</td></tr>
+<tr><td>Outra cápsula ou o comprimido deslocado davam “inconclusivo”</td><td>Comparar com uma foto “cheio” faz “presente” significar “este comprimido nesta posição”</td><td>Só a referência vazia: compensação de brilho, células alteradas e mancha mínima (subtração de fundo)</td></tr>
+<tr><td>Erro “too many initializers” no SNTP</td><td>Configuração gerada (<code>sdkconfig.esp32cam</code>) desatualizada</td><td>Regenerar a configuração sempre que <code>sdkconfig.defaults</code> muda (documentado)</td></tr>
+<tr><td>Gravação falhava (“porta não existe”, “acesso negado”)</td><td>O painel mantinha a porta serial aberta</td><td>Fechar o painel antes de gravar (documentado)</td></tr>
+<tr><td>Caminhos longos do ESP-IDF no Windows</td><td>Limite MAX_PATH</td><td><code>build.py</code> usa <code>subst</code> só no Windows</td></tr>
+<tr><td>Integrante com macOS</td><td>Scripts dependiam do PowerShell e de nomes de porta COM</td><td>Ferramentas em Python, detecção do CH340 por VID/PID e CI no macOS</td></tr>
+</table>
+</div>
+
+<!-- ===================== CRONOGRAMA ===================== -->
+<div class="section">
+<h1>13. Cronograma previsto e realizado</h1>
+<table>
+<tr><th style="width:10%">Data</th><th style="width:32%">Previsto (Tarefa 02)</th><th>Realizado</th><th style="width:14%">Situação</th></tr>
+<tr><td>04/09</td><td>Problema, cenário de uso, recursos</td><td>Tema definido e inventário inicial</td><td><span class="tag ok">CONCLUÍDO</span></td></tr>
+<tr><td>11/09</td><td>Tema, escopo, metodologia, custos</td><td>Proposta preliminar entregue</td><td><span class="tag ok">CONCLUÍDO</span></td></tr>
+<tr><td>18/09</td><td>Proposta final e cronograma</td><td>Plano de execução (Tarefa 02): requisitos RF/RNF, arquitetura, cronograma, divisão</td><td><span class="tag ok">CONCLUÍDO</span></td></tr>
+<tr><td>25/09</td><td>Requisitos, estados, interfaces, critérios de teste</td><td>Requisitos e estados definidos; <b>firmware v1.0.0</b> (operação pela USB) e testes do núcleo</td><td><span class="tag ok">ADIANTADO</span></td></tr>
+<tr><td>02/10</td><td>Arquitetura final, validar componentes</td><td>Placa ESP32-CAM conferida; <b>revisão de escopo</b>; MVP v2.0.0 com agenda, Wi-Fi, SNTP e Telegram gravado e verificado na placa</td><td><span class="tag ok">ADIANTADO</span></td></tr>
+<tr><td>09/10</td><td>Ambiente, firmware inicial, primeira imagem</td><td>Calibração em bancada; métrica top 10% para remédio pequeno; ferramentas para macOS; pull request. 11/10: teste com 4 situações e novo critério só com a referência vazia</td><td><span class="tag ok">ADIANTADO</span></td></tr>
+<tr><td>16/10</td><td>P1</td><td>Relatório, apresentação e demonstração do MVP</td><td><span class="tag part">EM CURSO</span></td></tr>
+<tr><td>23/10</td><td>Agenda e estados; captura estável; classificador preliminar</td><td>Agenda e estados já prontos. Antecipar: suporte mecânico fixo e calibração com vários remédios</td><td><span class="tag ok">ANTECIPADO</span></td></tr>
+<tr><td>30/10</td><td>Integrar visão, temporização, botão e buzzer</td><td>Integração com Telegram já feita; botão e buzzer fora do escopo</td><td><span class="tag chg">REVISTO</span></td></tr>
+<tr><td>06/11</td><td>Persistência, registros, falhas; extensões</td><td>Persistência e falhas prontas; avaliar extensão a mais compartimentos</td><td><span class="tag chg">REVISTO</span></td></tr>
+<tr><td>13/11 a 27/11</td><td>Testes de integração, desempenho, detecção, oclusão, reinício, 20 ciclos</td><td>A executar (RNF03, RNF06, RNF07)</td><td><span class="tag pend">PREVISTO</span></td></tr>
+<tr><td>04/12</td><td>Retestes, documentação, ensaio da demonstração</td><td>A executar</td><td><span class="tag pend">PREVISTO</span></td></tr>
+<tr><td>11/12</td><td>P2: protótipo, código, relatório de testes</td><td>A executar</td><td><span class="tag pend">PREVISTO</span></td></tr>
+</table>
+<p>O grupo está <b>adiantado na implementação</b>: o fluxo completo, previsto para 30/10, funciona desde 02/10, e o canal remoto, previsto como extensão, já é o modo principal. O ponto que exige atenção é a <b>validação quantitativa</b> (acurácia, oclusões e 20 ciclos), que depende do suporte mecânico fixo e da calibração com os remédios definitivos.</p>
+</div>
+
+<!-- ===================== DIVISÃO ===================== -->
+<div class="section">
+<h1>14. Divisão de tarefas</h1>
+<table style="break-inside: avoid">
+<tr><th style="width:24%">Integrante</th><th>Responsabilidades (plano da Tarefa 02, ajustadas ao novo escopo)</th></tr>
+<tr><td>Gabriel Dias Tambelli</td><td>Hardware e integração mecânica: conferência da placa e da câmera, alimentação, suporte e enquadramento, ensaios elétricos (RNF07) e de reprodutibilidade (RNF04); versão inicial do repositório e documentação de implementação.</td></tr>
+<tr><td>Henrique Murakami de Paula</td><td>Visão computacional e firmware: pipeline de imagem, métrica e limiares, calibração, integração Wi-Fi/SNTP/Telegram, testes na placa, ferramentas multiplataforma; ensaios de detecção (RNF03) e de tempo (RNF02).</td></tr>
+<tr><td>Juliana Marcarini Carloni</td><td>Firmware e arquitetura: máquina de estados, agenda e persistência em NVS, interface serial e painel, registros, versionamento e documentação do software.</td></tr>
+</table>
+<p class="small">Atividades conjuntas: definição do escopo, testes em bancada, relatório e apresentação.</p>
+</div>
+
+<!-- ===================== PRÓXIMOS PASSOS ===================== -->
+<div class="section">
+<h1>15. Próximos passos até a P2</h1>
+<ol>
+<li>Concluir o suporte mecânico fixo (câmera e caixa) e documentar distância, ângulo e iluminação (RNF04).</li>
+<li>Repetir as leituras com comprimidos de cores e tamanhos variados (inclusive brancos sobre fundo claro) e com variação de iluminação ao longo do dia.</li>
+<li>Ensaio de acurácia: 30 observações por classe fora da calibração e 10 oclusões, com o avaliador de registros (<code>tools/evaluate.py</code>) e matriz de confusão (RNF03).</li>
+<li>20 ciclos consecutivos e operação de 24 h só na fonte, acompanhando heap mínimo e reinícios (RNF06, RNF07).</li>
+<li>Medir o tempo entre o fim da janela e a chegada do aviso ao celular.</li>
+<li>Integrar o pull request ao repositório principal; avaliar a extensão para o organizador semanal (vários compartimentos/ROIs).</li>
+</ol>
+
+<h1 style="margin-top:14pt">16. Referências</h1>
+<ul class="small">
+<li>Espressif. <i>ESP32 Series Datasheet</i>. Versão incluída em <code>Documentacao/ESP32_Datasheet.pdf</code>.</li>
+<li>Espressif. <i>ESP-IDF Programming Guide v5.4</i> (Wi-Fi, SNTP/System Time, HTTP Client, NVS, Task Watchdog). docs.espressif.com.</li>
+<li>Espressif. <i>esp32-camera</i> v2.0.16. github.com/espressif/esp32-camera.</li>
+<li>Espressif. <i>CameraWebServer — camera_pins.h</i> (arduino-esp32 2.0.17), referência dos perfis de pinagem.</li>
+<li>RoboCore. <i>ESP32-CAM com Gravador Integrado</i>. robocore.net/wifi/esp32-cam-com-gravador-integrado.</li>
+<li>Telegram. <i>Telegram Bot API</i>. core.telegram.org/bots/api.</li>
+<li>NTP.br. <i>Servidores NTP públicos</i>. ntp.br.</li>
+<li>FreeRTOS. <i>FreeRTOS Kernel Reference Manual</i>. freertos.org.</li>
+<li>Grupo. <i>Proposta preliminar</i> e <i>Tarefa 02 — Consolidação do projeto e plano de execução</i> (pasta <code>Documentacao/</code>).</li>
+</ul>
+</div>
+</body>
+</html>
