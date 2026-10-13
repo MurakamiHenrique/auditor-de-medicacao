@@ -34,6 +34,7 @@ Item 3 (arguição): sem arquivo. A preparação está em `preparacao/ROTEIRO.md
 Entrega-P1/
 ├── LEIA-ME.md                      este arquivo
 ├── Relatorio_Tecnico_P1.pdf        entrega 1
+├── P1.docx                         mesmo relatório no modelo do grupo, editável (Word / Google Docs)
 ├── Apresentacao_P1.pdf             entrega 2
 ├── Apresentacao_P1.pptx            mesma apresentação, editável (PowerPoint / Google Slides)
 ├── videos/                         filmes .mp4 (entrega 1)
