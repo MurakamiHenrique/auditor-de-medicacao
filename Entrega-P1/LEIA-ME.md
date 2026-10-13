@@ -35,6 +35,7 @@ Entrega-P1/
 ├── LEIA-ME.md                      este arquivo
 ├── Relatorio_Tecnico_P1.pdf        entrega 1
 ├── Apresentacao_P1.pdf             entrega 2
+├── Apresentacao_P1.pptx            mesma apresentação, editável (PowerPoint / Google Slides)
 ├── videos/                         filmes .mp4 (entrega 1)
 ├── Atividade_Individual_modelo.md  entrega 4 (cada um a sua)
 ├── preparacao/ROTEIRO.md           demonstração, falas e arguição (não enviar)
